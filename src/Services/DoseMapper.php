@@ -9,13 +9,14 @@ class DoseMapper
      * Keep keys lowercase and normalized; values are full dosage strings.
      */
     private array $doseByItem = [
+        // ===== VITAL MEN PRODUCTS =====
         // Vital Man Day Essencial
         'vital man day essencial - pouch' => '1 DOSE = 1 SCOOP',
         'vital man day essencial - caps' => '1 DOSE = 2 CÁPSULAS',
         
         // Vital Man Night Essencial
         'vital man night essencial - pouch' => '1 DOSE = 1 SCOOP',
-        'vital man night essencial - caps' => '1 DOSE = 1 CÁPSULAS',
+        'vital man night essencial - caps' => '1 DOSE = 1 CÁPSULA',
         
         // Vital Man Day Avançado
         'vital man day avançado - pouch' => '1 DOSE = 1 SCOOP',
@@ -33,6 +34,7 @@ class DoseMapper
         'vital man night premium - pouch' => '1 DOSE = 1 SCOOP',
         'vital man night premium - caps' => '1 DOSE = 2 CÁPSULAS',
         
+        // ===== VITAL WOMEN PRODUCTS =====
         // Vital Woman Day Essencial
         'vital woman day essencial - pouch' => '1 DOSE = 1 SCOOP',
         'vital woman day essencial - caps' => '1 DOSE = 2 CÁPSULAS',
@@ -57,6 +59,7 @@ class DoseMapper
         'vital woman night premium - pouch' => '1 DOSE = 1 SCOOP',
         'vital woman night premium - caps' => '1 DOSE = 3 CÁPSULAS',
         
+        // ===== LONGEVITY MEN PRODUCTS =====
         // Longevity Man Day Essencial
         'longevity man day essencial - pouch' => '1 DOSE = 1 SCOOP',
         'longevity man day essencial - caps' => '1 DOSE = 3 CÁPSULAS',
@@ -81,6 +84,7 @@ class DoseMapper
         'longevity man night premium - pouch' => '1 DOSE = 1 SCOOP',
         'longevity man night premium - caps' => '1 DOSE = 3 CÁPSULAS',
         
+        // ===== LONGEVITY WOMEN PRODUCTS =====
         // Longevity Woman Day Essencial
         'longevity woman day essencial - pouch' => '1 DOSE = 1 SCOOP',
         'longevity woman day essencial - caps' => '1 DOSE = 3 CÁPSULAS',
@@ -104,6 +108,105 @@ class DoseMapper
         // Longevity Woman Night Premium
         'longevity woman night premium - pouch' => '1 DOSE = 1 SCOOP',
         'longevity woman night premium - caps' => '1 DOSE = 4 CÁPSULAS',
+
+        // ===== PURÍSSIMA GESTANTE PRODUCTS =====
+        // Puríssima Gestante Day
+        'puríssima gestante day - pouch' => '1 DOSE = 1 SCOOP',
+        'puríssima gestante day essencial - caps' => '1 DOSE = 2 CÁPSULAS',
+        'puríssima gestante day avançada - caps' => '1 DOSE = 2 CÁPSULAS',
+        'puríssima gestante day premium - caps' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Puríssima Gestante Night
+        'puríssima gestante night - pouch' => '1 DOSE = 1 SCOOP',
+        'puríssima gestante night essencial - caps' => '1 DOSE = 1 CÁPSULA',
+        'puríssima gestante night avançada - caps' => '1 DOSE = 2 CÁPSULAS',
+        'puríssima gestante night premium - caps' => '1 DOSE = 2 CÁPSULAS',
+
+        // ===== SPECIAL PRODUCTS =====
+        'my baby' => '1 DOSE = 1 SCOOP',
+        'my kids' => '1 DOSE = 1 SCOOP',
+
+        // ===== SYMPTOM-BASED PRODUCTS =====
+        // Ansiedade (Anxiety)
+        'ansiedade – leve' => '1 DOSE = 1 CÁPSULA',
+        'ansiedade – moderada' => '1 DOSE = 2 CÁPSULAS',
+        'ansiedade – severa' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Dermatites (Dermatitis)
+        'dermatites – leve' => '1 DOSE = 1 CÁPSULA',
+        'dermatites – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'dermatites – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Equilíbrio do Colesterol (Cholesterol Balance)
+        'equilíbrio do colesterol - leve' => '1 DOSE = 1 CÁPSULA',
+        'equilíbrio do colesterol - moderado' => '1 DOSE = 2 CÁPSULAS',
+        'equilíbrio do colesterol - grave' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Funções Cognitivas (Cognitive Functions)
+        'funções cognitivas – leve' => '1 DOSE = 1 CÁPSULA',
+        'funções cognitivas – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'funções cognitivas – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Hipotiroidismo (Hypothyroidism)
+        'hipotiroidismo - leve' => '1 DOSE = 1 CÁPSULA',
+        'hipotiroidismo - moderado' => '1 DOSE = 2 CÁPSULAS',
+        'hipotiroidismo - severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Imunidade Fraca (Weak Immunity)
+        'imunidade fraca - leve' => '1 DOSE = 1 CÁPSULA',
+        'imunidade fraca - moderada' => '1 DOSE = 2 CÁPSULAS',
+        'imunidade fraca - severa' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Lipedema
+        'lipedema - leve' => '1 DOSE = 1 CÁPSULA',
+        'lipedema - moderado' => '1 DOSE = 2 CÁPSULAS',
+        'lipedema - severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Má digestão (Poor Digestion)
+        'má digestão – leve' => '1 DOSE = 1 CÁPSULA',
+        'má digestão – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'má digestão – severo' => '1 DOSE = 3 CÁPSULAS',
+        'má digestão 2 – leve' => '1 DOSE = 1 CÁPSULA',
+        'má digestão 2 – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'má digestão 2 – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Perda de cabelos (Hair Loss)
+        'perda de cabelos - leve' => '1 DOSE = 1 CÁPSULA',
+        'perda de cabelos - moderado' => '1 DOSE = 2 CÁPSULAS',
+        'perda de cabelos - severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Perfil Glicêmico (Glycemic Profile)
+        'perfil glicêmico - leve' => '1 DOSE = 1 CÁPSULA',
+        'perfil glicêmico - moderado' => '1 DOSE = 2 CÁPSULAS',
+        
+        // Problemas Articulares (Joint Problems)
+        'problemas articulares – leve' => '1 DOSE = 1 CÁPSULA',
+        'problemas articulares – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'problemas articulares – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Problemas Femininos (Women's Problems)
+        'problemas femininos – leve' => '1 DOSE = 1 CÁPSULA',
+        'problemas femininos – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'problemas femininos – grave' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Problemas Intestinais (Intestinal Problems)
+        'problemas intestinais – leve' => '1 DOSE = 1 CÁPSULA',
+        'problemas intestinais – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'problemas intestinais – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Problemas Masculinos (Men's Problems)
+        'problemas masculinos – leve' => '1 DOSE = 1 CÁPSULA',
+        'problemas masculinos – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'problemas masculinos – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Problemas de Sono (Sleep Problems)
+        'problemas de sono – leve' => '1 DOSE = 1 CÁPSULA',
+        'problemas de sono – moderado' => '1 DOSE = 2 CÁPSULAS',
+        'problemas de sono – severo' => '1 DOSE = 3 CÁPSULAS',
+        
+        // Saúde cardiovascular (Cardiovascular Health)
+        'saúde cardiovascular - leve' => '1 DOSE = 1 CÁPSULA',
+        'saúde cardiovascular - moderado' => '1 DOSE = 2 CÁPSULAS'
     ];
 
     public function setMapping(string $itemName, string $dosageText): void
@@ -131,13 +234,21 @@ class DoseMapper
         // "Pouch Longevity Men Noite Essencial - Baunilha do Tahiti"
         // "Pouch Longevity Women Dia Avançada - Baunilha do Tahiti" 
         // "Cápsula Longevity Women Dia Premium"
+        // "Puríssima Gestante Dia - Baunilha do Tahiti"
+        // "Puríssima Gestante Dia Avançada Cápsula"
         // Convert to our mapping format: "longevity man night essencial - pouch"
         
-        // Remove flavor/scent part after the last dash
-        $parts = explode(' - ', $normalized);
+        // Remove flavor/scent part after the last dash (but keep severity levels)
+        // Handle both regular dash and en-dash
+        $parts = preg_split('/\s*[-–]\s*/', $normalized);
         if (count($parts) > 1) {
-            $baseName = trim($parts[0]);
-            $normalized = $baseName;
+            $lastPart = trim($parts[count($parts) - 1]);
+            // Check if last part is a flavor (not a severity level)
+            $flavors = ['baunilha do tahiti', 'frutas vermelhas', 'limonada suíça', 'mousse de maracujá'];
+            if (in_array($lastPart, $flavors)) {
+                $baseName = trim($parts[0]);
+                $normalized = $baseName;
+            }
         }
         
         // Handle Unicode characters (convert \u00e7 to ç, etc.)
@@ -162,6 +273,17 @@ class DoseMapper
             'vital man', 'vital woman', 'vital woman'
         ], $normalized);
         
+        // Handle Puríssima Gestante products
+        $normalized = str_replace([
+            'puríssima gestante dia - pouch', 'puríssima gestante noite - pouch',
+            'puríssima gestante dia essencial cápsula', 'puríssima gestante dia avançada cápsula', 'puríssima gestante dia premium cápsula',
+            'puríssima gestante noite essencial cápsula', 'puríssima gestante noite avançada cápsula', 'puríssima gestante noite premium cápsula'
+        ], [
+            'puríssima gestante day - pouch', 'puríssima gestante night - pouch',
+            'puríssima gestante day essencial - caps', 'puríssima gestante day avançada - caps', 'puríssima gestante day premium - caps',
+            'puríssima gestante night essencial - caps', 'puríssima gestante night avançada - caps', 'puríssima gestante night premium - caps'
+        ], $normalized);
+        
         // Convert Portuguese terms
         $normalized = str_replace([
             'dia', 'noite', 'essencial', 'avançado', 'avançada', 'premium'
@@ -177,6 +299,28 @@ class DoseMapper
             $normalized .= ' - caps';
             error_log('[DoseMapper] Detected Caps type for "' . $name . '" -> suffix " - caps"');
         }
+        
+        // Handle special products (My Baby, My Kids)
+        if (strpos($normalized, 'my baby') !== false) {
+            $normalized = 'my baby';
+        } elseif (strpos($normalized, 'my kids') !== false) {
+            $normalized = 'my kids';
+        }
+        
+        // Remove parenthetical content (everything between parentheses)
+        $normalized = preg_replace('/\s*\([^)]*\)/', '', $normalized);
+        
+        // Remove trailing colons
+        $normalized = rtrim($normalized, ':');
+        
+        // Handle symptom-based products - normalize severity indicators
+        $normalized = str_replace([
+            ' – leve', ' – moderado', ' – moderada', ' – severo', ' – severa', ' – grave',
+            ' - leve', ' - moderado', ' - moderada', ' - severo', ' - severa', ' - grave'
+        ], [
+            ' – leve', ' – moderado', ' – moderada', ' – severo', ' – severa', ' – grave',
+            ' – leve', ' – moderado', ' – moderada', ' – severo', ' – severa', ' – grave'
+        ], $normalized);
         
         // Collapse multiple spaces and normalize separators
         $normalized = preg_replace('/\s+/', ' ', $normalized);

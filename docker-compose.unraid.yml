@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  purissima-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: purissima-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Docker named volumes - managed by Docker
+      - purissima-storage:/var/www/html/storage
+      - purissima-logs:/var/log/purissima
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=${APP_URL:-http://unraid-server:8000}
+      - TZ=America/Sao_Paulo
+      # Database configuration (if using external DB)
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-purissima}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-}
+      # API configuration
+      - API_BASE_URL=${API_BASE_URL:-https://api.purissima.com}
+      - API_TIMEOUT=${API_TIMEOUT:-30}
+      - API_RETRY_ATTEMPTS=${API_RETRY_ATTEMPTS:-3}
+      # PDF configuration
+      - PDF_UPLOAD_PATH=${PDF_UPLOAD_PATH:-storage/uploads}
+      - PDF_OUTPUT_PATH=${PDF_OUTPUT_PATH:-storage/output}
+      - PDF_MAX_SIZE=${PDF_MAX_SIZE:-10485760}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FILE=${LOG_FILE:-storage/logs/app.log}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - purissima-network
+    labels:
+      # Unraid labels for better integration
+      - "net.unraid.docker.managed=dockerman"
+      - "net.unraid.docker.webui=http://[IP]:[PORT:8000]/"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/php-icon.png"
+
+  # Optional: Nginx reverse proxy for Unraid
+  purissima-nginx:
+    image: nginx:alpine
+    container_name: purissima-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - purissima-ssl:/etc/nginx/ssl:ro
+      - purissima-nginx-logs:/var/log/nginx
+    depends_on:
+      - purissima-app
+    networks:
+      - purissima-network
+    labels:
+      - "net.unraid.docker.managed=dockerman"
+      - "net.unraid.docker.webui=http://[IP]:[PORT:80]/"
+
+  # Optional: MySQL database for Unraid
+  purissima-mysql:
+    image: mysql:8.0
+    container_name: purissima-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_DATABASE:-purissima}
+      MYSQL_USER: ${DB_USERNAME:-purissima}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-purissimapassword}
+      TZ: America/Sao_Paulo
+    volumes:
+      - purissima-mysql:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - purissima-network
+    labels:
+      - "net.unraid.docker.managed=dockerman"
+
+volumes:
+  purissima-storage:
+    driver: local
+  purissima-logs:
+    driver: local
+  purissima-ssl:
+    driver: local
+  purissima-nginx-logs:
+    driver: local
+  purissima-mysql:
+    driver: local
+
+networks:
+  purissima-network:
+    driver: bridge
+    labels:
+      - "net.unraid.docker.managed=dockerman"

@@ -1,0 +1,67 @@
+# Multi-stage build for production
+FROM php:8.2-cli as base
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Production stage
+FROM base as production
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy composer files first for better caching
+COPY composer.json composer.lock* ./
+
+# Install dependencies (production only)
+RUN composer install --no-dev --no-scripts --optimize-autoloader --no-interaction
+
+# Copy application files
+COPY . .
+
+# Run composer scripts after copying files
+RUN composer run-script --no-dev post-install-cmd || true
+
+# Create necessary directories
+RUN mkdir -p storage/logs storage/uploads storage/output storage/pdf storage/fonts
+
+# Set proper permissions
+RUN chown -R www-data:www-data storage && \
+    chmod -R 755 storage
+
+# Ensure .env file exists with production defaults
+RUN if [ ! -f .env ]; then \
+    cp env.example .env && \
+    sed -i 's/APP_ENV=development/APP_ENV=production/' .env && \
+    sed -i 's/APP_DEBUG=true/APP_DEBUG=false/' .env; \
+    fi
+
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /var/www/html
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/ || exit 1
+
+# Start server
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "public"]

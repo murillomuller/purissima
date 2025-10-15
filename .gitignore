@@ -27,3 +27,16 @@ Thumbs.db
 
 # PHP
 *.log
+
+# Data files
+/data/
+*.json
+*.csv
+*.txt
+!README.md
+!*.md
+
+# Temporary files
+nul
+*.tmp
+*.temp

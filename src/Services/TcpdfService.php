@@ -395,7 +395,7 @@ class TcpdfService
         
         // Draw text on top (without background)
         $pdf->SetXY(20, $yPosition);
-        $pdf->Cell(170, 8, $this->cleanText($item['itm_name']), 0, 1, 'L', false);
+        $pdf->Cell(170, 8, $this->cleanText($this->cleanItemName($item['itm_name'])), 0, 1, 'L', false);
         $yPosition += 6;
         
         // Dosage information
@@ -476,6 +476,31 @@ class TcpdfService
         ], $text);
         
         return $text;
+    }
+
+    /**
+     * Clean item name by removing severity suffixes and parenthetical content for "other" items
+     */
+    private function cleanItemName(string $itemName): string
+    {
+        // Remove severity suffixes (both with regular dash and en dash)
+        $severityPatterns = [
+            ' - Leve', ' - Moderado', ' - Moderada', ' - Severo', ' - Severa', ' - Grave',
+            ' – Leve', ' – Moderado', ' – Moderada', ' – Severo', ' – Severa', ' – Grave'
+        ];
+        
+        $cleanedName = $itemName;
+        foreach ($severityPatterns as $pattern) {
+            $cleanedName = str_replace($pattern, '', $cleanedName);
+        }
+        
+        // Remove parenthetical content (everything between parentheses)
+        $cleanedName = preg_replace('/\s*\([^)]*\)/', '', $cleanedName);
+        
+        // Remove trailing colons
+        $cleanedName = rtrim($cleanedName, ':');
+        
+        return trim($cleanedName);
     }
 
     /**

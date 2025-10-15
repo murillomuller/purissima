@@ -1,41 +1,76 @@
 # Git
 .git
 .gitignore
+.gitattributes
 
 # Documentation
 README.md
 *.md
 
-# Environment files
+# Development files
 .env
 .env.local
-.env.production
+.env.development
+.env.testing
 
-# Storage (will be mounted as volume)
+# Logs
 storage/logs/*
-storage/uploads/*
-storage/output/*
 !storage/logs/.gitkeep
+
+# Uploads and temporary files
+storage/uploads/*
 !storage/uploads/.gitkeep
+storage/output/*
 !storage/output/.gitkeep
 
-# IDE
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
+# Development scripts
+dev-*.bat
+dev-*.sh
+dev-*.yml
+docker-compose.dev*.yml
+docker-compose.windows.yml
 
-# Tests
+# Test files
 tests/
+phpunit.xml
+.phpunit.result.cache
 
-# Setup script
-setup.php
+# Temporary files
+*.tmp
+*.temp
+nul
+
+# Data extraction files (not needed in production)
+extract-*.js
+extract-*.php
+extract-*.bat
+extract-*.sh
+*-item-names*.txt
+*-item-names*.json
+*-item-names*.csv
+raw-orders-data*.json
+item-frequency*.csv
+debug-*.php
+simple-item-extractor.php
+convert-font.*
+
+# Package files
+package.json
+package-lock.json
