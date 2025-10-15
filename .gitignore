@@ -1,0 +1,29 @@
+# Dependencies
+/vendor/
+composer.lock
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Storage
+/storage/logs/*.log
+/storage/uploads/*
+/storage/output/*
+!/storage/logs/.gitkeep
+!/storage/uploads/.gitkeep
+!/storage/output/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PHP
+*.log

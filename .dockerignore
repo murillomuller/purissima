@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Storage (will be mounted as volume)
+storage/logs/*
+storage/uploads/*
+storage/output/*
+!storage/logs/.gitkeep
+!storage/uploads/.gitkeep
+!storage/output/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Tests
+tests/
+
+# Setup script
+setup.php

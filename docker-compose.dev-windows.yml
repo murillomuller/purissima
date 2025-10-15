@@ -1,0 +1,40 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - type: bind
+        source: ./src
+        target: /var/www/html/src
+      - type: bind
+        source: ./public
+        target: /var/www/html/public
+      - type: bind
+        source: ./views
+        target: /var/www/html/views
+      - type: bind
+        source: ./storage
+        target: /var/www/html/storage
+      - type: bind
+        source: ./composer.json
+        target: /var/www/html/composer.json
+      - type: bind
+        source: ./composer.lock
+        target: /var/www/html/composer.lock
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=true
+      - APP_NAME="Purissima PHP Project"
+      - APP_URL=http://localhost:8000
+      - API_BASE_URL=https://api.purissima.com
+      - API_TIMEOUT=30
+      - API_RETRY_ATTEMPTS=3
+      - PDF_UPLOAD_PATH=storage/uploads
+      - PDF_OUTPUT_PATH=storage/output
+      - PDF_MAX_SIZE=10485760
+      - LOG_LEVEL=debug
+      - LOG_FILE=storage/logs/app.log
+    command: php -S 0.0.0.0:8000 -t public
