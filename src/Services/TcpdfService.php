@@ -206,6 +206,7 @@ class TcpdfService
             try {
                 $pdf->SetFont('opensansb', '', 7.7);
             } catch (\Exception $e) {
+                // Fallback to helvetica bold (opensans doesn't support bold style)
                 $pdf->SetFont('helvetica', 'B', 7.7);
             }
             $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 3));
@@ -778,6 +779,7 @@ class TcpdfService
         try {
             $pdf->SetFont('opensansb', '', 7.7);
         } catch (\Exception $e) {
+            // Fallback to helvetica bold (opensans doesn't support bold style)
             $pdf->SetFont('helvetica', 'B', 7.7);
         }
         $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 4));

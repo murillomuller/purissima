@@ -40,6 +40,14 @@ RUN composer run-script --no-dev post-install-cmd || true
 # Create necessary directories
 RUN mkdir -p storage/logs storage/uploads storage/output storage/pdf storage/fonts
 
+# Ensure font files are properly copied and accessible
+RUN if [ -d "storage/fonts" ]; then \
+    chmod -R 644 storage/fonts/* && \
+    echo "Font files found and permissions set"; \
+    else \
+    echo "Warning: storage/fonts directory not found"; \
+    fi
+
 # Set proper permissions
 RUN chown -R www-data:www-data storage && \
     chmod -R 755 storage
