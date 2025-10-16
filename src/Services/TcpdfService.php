@@ -981,7 +981,7 @@ class TcpdfService
         // Capsule information (60 CAPSULAS | 30 DOSES)
         try { $pdf->SetFont('brandontextblack', '', 5.5); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 5.5); }
         $pdf->SetXY($rightColumnX+4, $rightColumnY);
-        $pdf->Cell($rightColumnWidth - 2, 3, $this->cleanText('60 CÁPSULAS | 30 DOSES'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 2, 3, $this->cleanText('26 DOSES'), 0, 1, 'L');
         $rightColumnY += 3;
         
         // Dosage information from item (like receituario) - only if not empty
