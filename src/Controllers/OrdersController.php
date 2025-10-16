@@ -137,6 +137,10 @@ class OrdersController extends BaseController
 
     public function generateSticker(Request $request)
     {
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
+        
         try {
             $orderId = $request->get('order_id');
             if (empty($orderId)) {
@@ -182,6 +186,10 @@ class OrdersController extends BaseController
                 'success' => false,
                 'error' => 'Falha ao gerar Sticker: ' . $e->getMessage()
             ], 500);
+        } finally {
+            // Restore error reporting settings
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
         }
     }
 

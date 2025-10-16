@@ -581,7 +581,7 @@ class TcpdfService
     /**
      * Add a vertical rotulo for pouches (like NOITE design)
      */
-    private function addPouchRotulo($pdf, array $rotuloData, int $x, int $y, int $width = 100, int $height = 180)
+    private function addPouchRotulo($pdf, array $rotuloData, float $x, float $y, float $width = 100, float $height = 180)
     {
         // Create variable for repeated width calculation
         $contentWidth = $width - 2;
@@ -836,7 +836,7 @@ class TcpdfService
     /**
      * Add a horizontal sticker for capsules and other products
      */
-    private function addHorizontalSticker($pdf, array $rotuloData, int $x, int $y, int $width = 100, int $height = 180)
+    private function addHorizontalSticker($pdf, array $rotuloData, float $x, float $y, float $width = 100, float $height = 180)
     {
         // Determine color scheme based on product_name using ColorSchemeService
         $productName = substituir($rotuloData['product_name']) ;
@@ -1057,7 +1057,7 @@ class TcpdfService
     /**
      * Add a capsula layout rotulo (horizontal design for capsulas)
      */
-    private function addCapsulaRotulo($pdf, array $rotuloData, int $x, int $y, int $width = 100, int $height = 180)
+    private function addCapsulaRotulo($pdf, array $rotuloData, float $x, float $y, float $width = 100, float $height = 180)
     {
         // Determine color scheme type
         $colorSchemeType = $rotuloData['color_scheme_type'] ?? $rotuloData['product_type'] ?? 'default';
@@ -1267,7 +1267,7 @@ class TcpdfService
     /**
      * Add a single rotulo (chooses between pouch, capsula, or horizontal layout)
      */
-    private function addSingleRotulo($pdf, array $rotuloData, int $x, int $y, int $width = 100, int $height = 180)
+    private function addSingleRotulo($pdf, array $rotuloData, float $x, float $y, float $width = 100, float $height = 180)
     {
         $productType = $rotuloData['product_type'] ?? 'default';
         $productName = $rotuloData['product_name'] ?? '';
@@ -1701,6 +1701,10 @@ class TcpdfService
                 'items_count' => count($items)
             ]);
             throw $e;
+        } finally {
+            // Restore error reporting settings
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
         }
     }
 
