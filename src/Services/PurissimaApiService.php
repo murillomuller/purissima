@@ -130,8 +130,19 @@ class PurissimaApiService
                 $deduplicatedItems = [];
                 
                 foreach ($orderData['items'] as $item) {
-                    // Create a unique key based on itm_id and var_id
-                    $itemKey = ($item['itm_id'] ?? '') . '_' . ($item['var_id'] ?? '');
+                    // Prefer strong identity when available
+                    $hasStrongId = isset($item['itm_id']) && isset($item['var_id']) && $item['itm_id'] !== '' && $item['var_id'] !== '';
+                    if ($hasStrongId) {
+                        $itemKey = (string)$item['itm_id'] . '_' . (string)$item['var_id'];
+                    } else {
+                        // Fallback: derive a key from normalized content to avoid collapsing distinct items
+                        $name = isset($item['itm_name']) ? trim((string)$item['itm_name']) : '';
+                        $composition = isset($item['composition']) ? trim((string)$item['composition']) : '';
+                        // Normalize whitespace and case for stability
+                        $norm = strtolower(preg_replace('/\s+/', ' ', $name . '|' . $composition));
+                        // If even fallback is empty, use a unique per-item key to disable dedup
+                        $itemKey = $norm !== '' ? 'fallback:' . $norm : uniqid('no-key-', true);
+                    }
                     
                     if (!isset($seenItems[$itemKey])) {
                         $seenItems[$itemKey] = true;
@@ -141,7 +152,9 @@ class PurissimaApiService
                             'order_id' => $orderId,
                             'itm_id' => $item['itm_id'] ?? 'unknown',
                             'var_id' => $item['var_id'] ?? 'unknown',
-                            'item_name' => $item['itm_name'] ?? 'unknown'
+                            'item_name' => $item['itm_name'] ?? 'unknown',
+                            'dedup_key' => $itemKey,
+                            'has_strong_id' => $hasStrongId
                         ]);
                     }
                 }

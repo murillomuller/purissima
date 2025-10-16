@@ -95,193 +95,232 @@ class TcpdfService
 
     public function createPrescriptionPdf(array $orderData, array $items): string
     {
-        $filename = 'receituario_' . $orderData['ord_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
-        $filepath = $this->outputPath . '/' . $filename;
+		$filename = 'receituario_' . $orderData['ord_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
+		$filepath = $this->outputPath . '/' . $filename;
 
-        $this->logger->info('Using TCPDF service for PDF generation');
-        
-        // Suppress any output that might interfere with JSON response
-        ob_start();
-        
-        try {
-            // Use FPDI to import the base PDF template
-            $basePdfPath = __DIR__ . '/../../storage/pdf/receituario-base.pdf';
-            if (!file_exists($basePdfPath)) {
-                throw new \Exception('Base PDF template not found: ' . $basePdfPath);
-            }
-            
-            $pdf = new Fpdi();
-            $pdf->setSourceFile($basePdfPath);
-            $templateId = $pdf->importPage(1);
-            
-            // Disable default TCPDF header/footer behavior
-            $pdf->setPrintHeader(false);
-            $pdf->setPrintFooter(false);
-            
-            // Set the fonts directory for TCPDF
-            // Note: FPDI with TCPDF might not support setFontsPath, so we'll handle fonts differently
-            
-            // Add Brandon Black font for headers using the generated PHP font file
-            $brandonBlackPhpPath = $this->fontsPath . '/brandontextblack.php';
-            if (file_exists($brandonBlackPhpPath)) {
-                try {
-                    $pdf->AddFont('brandontextblack', '', $brandonBlackPhpPath, true);
-                    $this->logger->info('Brandon Black font loaded successfully from brandontextblack.php');
-                } catch (\Exception $e) {
-                    $this->logger->warning('Failed to load Brandon Black font from PHP file: ' . $e->getMessage());
-                    // Don't throw exception, just log and continue
-                }
-            } else {
-                $this->logger->warning('Brandon Black PHP font file not found, using default fonts');
-            }
-            
-            // Add OpenSans font for body text
-            $openSansPhpPath = $this->fontsPath . '/opensans.php';
-            if (file_exists($openSansPhpPath)) {
-                try {
-                    $pdf->AddFont('opensans', '', $openSansPhpPath, true);
-                    $this->logger->info('OpenSans font loaded successfully from opensans.php');
-                } catch (\Exception $e) {
-                    $this->logger->warning('Failed to load OpenSans font from PHP file: ' . $e->getMessage());
-                    // Don't throw exception, just log and continue
-                }
-            } else {
-                $this->logger->warning('OpenSans PHP font file not found, using default fonts');
-            }
-            
-            // Add OpenSans Bold font for patient names
-            $openSansBoldPhpPath = $this->fontsPath . '/opensansb.php';
-            if (file_exists($openSansBoldPhpPath)) {
-                try {
-                    $pdf->AddFont('opensansb', '', $openSansBoldPhpPath, true);
-                    $this->logger->info('OpenSans Bold font loaded successfully from opensansb.php');
-                } catch (\Exception $e) {
-                    $this->logger->warning('Failed to load OpenSans Bold font from PHP file: ' . $e->getMessage());
-                    // Don't throw exception, just log and continue
-                }
-            } else {
-                $this->logger->warning('OpenSans Bold PHP font file not found, using default fonts');
-            }
-            
-            // Use custom fonts for headers and body text
-            $this->logger->info('Using TCPDF with custom fonts (Brandon Black for headers, OpenSans for body text)');
-            
-            // Set page settings
-            $pdf->SetAutoPageBreak(false, 0); // Disable auto page break, we'll handle it manually
-            
-            // Set text color to #3F1F20
-            $this->setStandardTextColor($pdf);
-            
-            // Disable default drawing behavior
-            $pdf->SetDrawColor(255, 255, 255); // Set to white/transparent
-            $pdf->SetLineWidth(0);
-            
-            // Add first page with base template
-            $pdf->AddPage();
-            $pdf->useTemplate($templateId);
-            
-            // Patient information
-            // Patient name with 11pt font
-            try {
-                $pdf->SetFont('opensansb', '', 11);
-            } catch (\Exception $e) {
-                $pdf->SetFont('helvetica', 'B', 11);
-            }
-            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY);
-            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText($this->capitalizePatientName($orderData['usr_name'])), 0, 1, 'R');
-            
-            // Other patient info with 7.7pt font
-            try {
-                $pdf->SetFont('opensans', '', 7.7);
-            } catch (\Exception $e) {
-                $pdf->SetFont('helvetica', '', 7.7);
-            }
-            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing);
-            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
-            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + $this->patientInfoSpacing);
-            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
-            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 2));
-            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Telefone: ' . $this->formatPhoneNumber($orderData['usr_phone'])), 0, 1, 'R');
-            // Set font to opensansb for Prescrição
-            try {
-                $pdf->SetFont('opensansb', '', 7.7);
-            } catch (\Exception $e) {
-                // Fallback to helvetica bold (opensans doesn't support bold style)
-                $pdf->SetFont('helvetica', 'B', 7.7);
-            }
-            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 3));
-            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
-            
-            // Date at bottom right
-            try {
-                $pdf->SetFont('opensans', '', 7.7);
-            } catch (\Exception $e) {
-                $pdf->SetFont('helvetica', '', 7.7);
-            }
-            $pdf->SetXY($this->dateXPosition, $this->dateYPosition);
-            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->formatDatePortuguese(), 0, 1, 'C');
-            
-            // Enrich items with precomputed dose text from mapper
-            foreach ($items as &$itemRef) {
-                if (isset($itemRef['itm_name'])) {
-                    $doseText = $this->doseMapper->getDosageText($itemRef['itm_name']);
-                    $itemRef['dose_text'] = is_string($doseText) ? $doseText : '';
-                }
-            }
-            unset($itemRef);
+		$this->logger->info('Using TCPDF service for PDF generation');
+		
+		// Suppress any output that might interfere with JSON response
+		ob_start();
+		
+		try {
+			// Use FPDI to import the base PDF template
+			$basePdfPath = __DIR__ . '/../../storage/pdf/receituario-base.pdf';
+			if (!file_exists($basePdfPath)) {
+				throw new \Exception('Base PDF template not found: ' . $basePdfPath);
+			}
+			
+			$pdf = new Fpdi();
+			$pdf->setSourceFile($basePdfPath);
+			$templateId = $pdf->importPage(1);
+			
+			$this->preparePdf($pdf);
+			
+			// Render a single order
+			$this->renderOrderPrescription($pdf, $templateId, $orderData, $items);
+			
+			// Output the PDF
+			$pdf->Output($filepath, 'F');
+			
+			// Clean any output buffer
+			ob_end_clean();
+			
+			$this->logger->info('Prescription PDF created with TCPDF', [
+				'order_id' => $orderData['ord_id'],
+				'filename' => $filename,
+				'filepath' => $filepath,
+				'file_exists' => file_exists($filepath),
+				'file_size' => filesize($filepath)
+			]);
+			
+			return $filename;
+			
+		} catch (\Exception $e) {
+			// Clean output buffer and log error
+			ob_end_clean();
+			
+			$this->logger->error('Prescription PDF creation failed', [
+				'order_id' => $orderData['ord_id'],
+				'error' => $e->getMessage(),
+				'file' => $e->getFile(),
+				'line' => $e->getLine()
+			]);
+			throw $e;
+		}
+	}
 
-            // Group items by time (Dia/Noite) and type (pouch/Cápsula)
-            $groupedItems = $this->groupItemsByTimeAndType($items);
-            
-            // Prescriptions - Structured Layout
-            $yPosition = $this->newPageYPosition;
-            
-            // Process each time group (Dia, Noite, Others)
-            foreach ($groupedItems as $timeGroup => $typeGroups) {
-                // Process pouch and capsula items together (only for Dia and Noite)
-                if (($timeGroup === 'dia' || $timeGroup === 'noite') && (!empty($typeGroups['pouch']) || !empty($typeGroups['capsula']))) {
-                    $pouchItems = $typeGroups['pouch'] ?? [];
-                    $capsulaItems = $typeGroups['capsula'] ?? [];
-                    $this->processPouchSection($pdf, $timeGroup, $pouchItems, $capsulaItems, $yPosition, $templateId, $orderData);
-                }
-                
-                // Process other items with their names as headers
-                if ($timeGroup === 'other') {
-                    foreach ($typeGroups as $item) {
-                        $this->processOtherItem($pdf, $item, $yPosition, $templateId, $orderData);
-                    }
-                }
-            }
-            
-            // Output the PDF
-            $pdf->Output($filepath, 'F');
-            
-            // Clean any output buffer
-            ob_end_clean();
+	/**
+	 * Generate one combined PDF for multiple orders
+	 */
+	public function createBatchPrescriptionPdf(array $orders): string
+	{
+		$filename = 'receituario_batch_' . date('Y-m-d_H-i-s') . '.pdf';
+		$filepath = $this->outputPath . '/' . $filename;
+		
+		$this->logger->info('Generating batch prescription PDF', [
+			'orders_count' => count($orders)
+		]);
+		
+		ob_start();
+		
+		try {
+			$basePdfPath = __DIR__ . '/../../storage/pdf/receituario-base.pdf';
+			if (!file_exists($basePdfPath)) {
+				throw new \Exception('Base PDF template not found: ' . $basePdfPath);
+			}
+			
+			$pdf = new Fpdi();
+			$pdf->setSourceFile($basePdfPath);
+			$templateId = $pdf->importPage(1);
+			
+			$this->preparePdf($pdf);
+			
+			foreach ($orders as $o) {
+				if (!isset($o['order']) || !isset($o['items'])) {
+					continue;
+				}
+				$this->renderOrderPrescription($pdf, $templateId, $o['order'], $o['items']);
+			}
+			
+			$pdf->Output($filepath, 'F');
+			ob_end_clean();
+			
+			$this->logger->info('Batch prescription PDF created', [
+				'filename' => $filename,
+				'filepath' => $filepath,
+				'file_exists' => file_exists($filepath),
+				'file_size' => file_exists($filepath) ? filesize($filepath) : 0
+			]);
+			
+			return $filename;
+		} catch (\Exception $e) {
+			ob_end_clean();
+			$this->logger->error('Batch prescription PDF creation failed', [
+				'error' => $e->getMessage()
+			]);
+			throw $e;
+		}
+	}
 
-            $this->logger->info('Prescription PDF created with TCPDF', [
-                'order_id' => $orderData['ord_id'],
-                'filename' => $filename,
-                'filepath' => $filepath,
-                'file_exists' => file_exists($filepath),
-                'file_size' => filesize($filepath)
-            ]);
+	/**
+	 * Common PDF preparation (fonts, colors, settings)
+	 */
+	private function preparePdf($pdf): void
+	{
+		// Disable default TCPDF header/footer behavior
+		$pdf->setPrintHeader(false);
+		$pdf->setPrintFooter(false);
+		
+		// Add fonts when available
+		$brandonBlackPhpPath = $this->fontsPath . '/brandontextblack.php';
+		if (file_exists($brandonBlackPhpPath)) {
+			try {
+				$pdf->AddFont('brandontextblack', '', $brandonBlackPhpPath, true);
+				$this->logger->info('Brandon Black font loaded successfully from brandontextblack.php');
+			} catch (\Exception $e) {
+				$this->logger->warning('Failed to load Brandon Black font from PHP file: ' . $e->getMessage());
+			}
+		}
+		$openSansPhpPath = $this->fontsPath . '/opensans.php';
+		if (file_exists($openSansPhpPath)) {
+			try {
+				$pdf->AddFont('opensans', '', $openSansPhpPath, true);
+				$this->logger->info('OpenSans font loaded successfully from opensans.php');
+			} catch (\Exception $e) {
+				$this->logger->warning('Failed to load OpenSans font from PHP file: ' . $e->getMessage());
+			}
+		}
+		$openSansBoldPhpPath = $this->fontsPath . '/opensansb.php';
+		if (file_exists($openSansBoldPhpPath)) {
+			try {
+				$pdf->AddFont('opensansb', '', $openSansBoldPhpPath, true);
+				$this->logger->info('OpenSans Bold font loaded successfully from opensansb.php');
+			} catch (\Exception $e) {
+				$this->logger->warning('Failed to load OpenSans Bold font from PHP file: ' . $e->getMessage());
+			}
+		}
+		
+		// Set page settings and defaults
+		$pdf->SetAutoPageBreak(false, 0);
+		$this->setStandardTextColor($pdf);
+		$pdf->SetDrawColor(255, 255, 255);
+		$pdf->SetLineWidth(0);
+	}
 
-            return $filename;
-
-        } catch (\Exception $e) {
-            // Clean output buffer and log error
-            ob_end_clean();
-            
-            $this->logger->error('Prescription PDF creation failed', [
-                'order_id' => $orderData['ord_id'],
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-            throw $e;
-        }
-    }
+	/**
+	 * Render a full prescription for a single order into the given PDF
+	 */
+	private function renderOrderPrescription($pdf, $templateId, array $orderData, array $items): void
+	{
+		// Add first page with base template for this order
+		$pdf->AddPage();
+		$pdf->useTemplate($templateId);
+		
+		// Patient information
+		try {
+			$pdf->SetFont('opensansb', '', 11);
+		} catch (\Exception $e) {
+			$pdf->SetFont('helvetica', 'B', 11);
+		}
+		$pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY);
+		$patientName = $orderData['Nome'] ?? ($orderData['usr_name'] ?? '');
+		$pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText($this->capitalizePatientName($patientName)), 0, 1, 'R');
+		
+		try {
+			$pdf->SetFont('opensans', '', 7.7);
+		} catch (\Exception $e) {
+			$pdf->SetFont('helvetica', '', 7.7);
+		}
+		$pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing);
+		$pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
+		$pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + $this->patientInfoSpacing);
+		$genero = $orderData['Genero'] ?? null;
+		$sexoLabel = '[Não informado]';
+		if ($genero === 1 || $genero === '1') {
+			$sexoLabel = 'Masculino';
+		} elseif ($genero === 2 || $genero === '2') {
+			$sexoLabel = 'Feminino';
+		}
+		$pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: ' . $sexoLabel), 0, 1, 'R');
+		$pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 2));
+		$pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Telefone: ' . $this->formatPhoneNumber($orderData['usr_phone'])), 0, 1, 'R');
+		$pdf->SetFont('helvetica', 'B', 7.7);
+		$pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 3));
+		$pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
+		
+		try {
+			$pdf->SetFont('opensans', '', 7.7);
+		} catch (\Exception $e) {
+			$pdf->SetFont('helvetica', '', 7.7);
+		}
+		$pdf->SetXY($this->dateXPosition, $this->dateYPosition);
+		$pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->formatDatePortuguese(), 0, 1, 'C');
+		
+		// Enrich items with precomputed dose text from mapper
+		foreach ($items as &$itemRef) {
+			if (isset($itemRef['itm_name'])) {
+				$doseText = $this->doseMapper->getDosageText($itemRef['itm_name']);
+				$itemRef['dose_text'] = is_string($doseText) ? $doseText : '';
+			}
+		}
+		unset($itemRef);
+		
+		$groupedItems = $this->groupItemsByTimeAndType($items);
+		$yPosition = $this->newPageYPosition;
+		
+		foreach ($groupedItems as $timeGroup => $typeGroups) {
+			if (($timeGroup === 'dia' || $timeGroup === 'noite') && (!empty($typeGroups['pouch']) || !empty($typeGroups['capsula']))) {
+				$pouchItems = $typeGroups['pouch'] ?? [];
+				$capsulaItems = $typeGroups['capsula'] ?? [];
+				$this->processPouchSection($pdf, $timeGroup, $pouchItems, $capsulaItems, $yPosition, $templateId, $orderData);
+			}
+			if ($timeGroup === 'other') {
+				foreach ($typeGroups as $item) {
+					$this->processOtherItem($pdf, $item, $yPosition, $templateId, $orderData);
+				}
+			}
+		}
+	}
 
     /**
      * Group items by time (Dia/Noite) and type (pouch/Cápsula)
@@ -761,7 +800,8 @@ class TcpdfService
             $pdf->SetFont('helvetica', 'B', 11);
         }
         $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY);
-        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText($this->capitalizePatientName($orderData['usr_name'])), 0, 1, 'R');
+        $patientName = $orderData['Nome'] ?? ($orderData['usr_name'] ?? '');
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText($this->capitalizePatientName($patientName)), 0, 1, 'R');
         
         // Other patient info with 7.7pt font
         try {
@@ -772,16 +812,18 @@ class TcpdfService
         $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientInfoSpacing);
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
         $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 2));
-        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
+        $genero = $orderData['Genero'] ?? null;
+        $sexoLabel = '[Não informado]';
+        if ($genero === 1 || $genero === '1') {
+            $sexoLabel = 'Masculino';
+        } elseif ($genero === 2 || $genero === '2') {
+            $sexoLabel = 'Feminino';
+        }
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: ' . $sexoLabel), 0, 1, 'R');
         $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 3));
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Telefone: ' . $this->formatPhoneNumber($orderData['usr_phone'])), 0, 1, 'R');
-        // Set font to opensansb for Prescrição
-        try {
-            $pdf->SetFont('opensansb', '', 7.7);
-        } catch (\Exception $e) {
-            // Fallback to helvetica bold (opensans doesn't support bold style)
-            $pdf->SetFont('helvetica', 'B', 7.7);
-        }
+        // Set font to helvetica bold for Prescrição (more reliable than opensansb)
+        $pdf->SetFont('helvetica', 'B', 7.7);
         $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 4));
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
         

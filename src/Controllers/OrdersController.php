@@ -138,4 +138,72 @@ class OrdersController extends BaseController
             ], 404);
         }
     }
+
+	public function generateBatchPrescriptions(Request $request)
+	{
+		try {
+			ob_start();
+			$ids = $request->get('order_ids');
+			if (empty($ids)) {
+				ob_end_clean();
+				return $this->json(['success' => false, 'error' => 'Order IDs are required'], 400);
+			}
+			
+			// Accept JSON array or comma-separated string
+			if (is_string($ids)) {
+				$decoded = json_decode($ids, true);
+				if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+					$ids = $decoded;
+				} else {
+					$ids = array_filter(array_map('trim', explode(',', $ids)));
+				}
+			}
+			
+			if (!is_array($ids) || count($ids) === 0) {
+				ob_end_clean();
+				return $this->json(['success' => false, 'error' => 'Invalid order IDs'], 400);
+			}
+			
+			$orders = [];
+			foreach ($ids as $orderId) {
+				try {
+					$order = $this->purissimaApi->getOrderById($orderId);
+					if ($order && isset($order['order'])) {
+						$orders[] = [
+							'order' => $order['order'],
+							'items' => $order['items'] ?? []
+						];
+					}
+				} catch (\Exception $e) {
+					$this->logger->warning('Skipping order during batch generation', [
+						'order_id' => $orderId,
+						'error' => $e->getMessage()
+					]);
+				}
+			}
+			
+			if (count($orders) === 0) {
+				ob_end_clean();
+				return $this->json(['success' => false, 'error' => 'No valid orders found'], 404);
+			}
+			
+			$filename = $this->pdfService->createBatchPrescriptionPdf($orders);
+			
+			ob_end_clean();
+			return $this->json([
+				'success' => true,
+				'filename' => $filename,
+				'message' => 'Batch prescription generated successfully'
+			]);
+		} catch (\Exception $e) {
+			ob_end_clean();
+			$this->logger->error('Failed to generate batch prescriptions', [
+				'error' => $e->getMessage()
+			]);
+			return $this->json([
+				'success' => false,
+				'error' => 'Failed to generate batch prescriptions: ' . $e->getMessage()
+			], 500);
+		}
+	}
 }

@@ -85,11 +85,19 @@ class PdfService
             // Patient information (moved up a bit, less bottom)
             $pdf->SetFont('Arial', '', 10);
             $pdf->SetXY(125, 15);
-            $pdf->Cell(70, 5, $this->cleanText($orderData['usr_name']), 0, 1, 'R');
+            $patientName = $orderData['Nome'] ?? ($orderData['usr_name'] ?? '');
+            $pdf->Cell(70, 5, $this->cleanText($patientName), 0, 1, 'R');
             $pdf->SetXY(125, 20);
             $pdf->Cell(70, 5, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
             $pdf->SetXY(125, 25);
-            $pdf->Cell(70, 5, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
+            $genero = $orderData['Genero'] ?? null;
+            $sexoLabel = '[Não informado]';
+            if ($genero === 1 || $genero === '1') {
+                $sexoLabel = 'Masculino';
+            } elseif ($genero === 2 || $genero === '2') {
+                $sexoLabel = 'Feminino';
+            }
+            $pdf->Cell(70, 5, $this->cleanText('Sexo: ' . $sexoLabel), 0, 1, 'R');
             $pdf->SetXY(125, 30);
             $pdf->Cell(70, 5, $this->cleanText('Telefone: ' . $orderData['usr_phone']), 0, 1, 'R');
             $pdf->SetXY(125, 35);
@@ -558,11 +566,19 @@ class PdfService
         // Add patient data (moved up a bit, less bottom)
         $pdf->SetFont('Arial', '', 10);
         $pdf->SetXY(125, 15);
-        $pdf->Cell(70, 5, $this->cleanText($orderData['usr_name']), 0, 1, 'R');
+        $patientName = $orderData['Nome'] ?? ($orderData['usr_name'] ?? '');
+        $pdf->Cell(70, 5, $this->cleanText($patientName), 0, 1, 'R');
         $pdf->SetXY(125, 20);
         $pdf->Cell(70, 5, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
         $pdf->SetXY(125, 25);
-        $pdf->Cell(70, 5, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
+        $genero = $orderData['Genero'] ?? null;
+        $sexoLabel = '[Não informado]';
+        if ($genero === 1 || $genero === '1') {
+            $sexoLabel = 'Masculino';
+        } elseif ($genero === 2 || $genero === '2') {
+            $sexoLabel = 'Feminino';
+        }
+        $pdf->Cell(70, 5, $this->cleanText('Sexo: ' . $sexoLabel), 0, 1, 'R');
         $pdf->SetXY(125, 30);
         $pdf->Cell(70, 5, $this->cleanText('Telefone: ' . $orderData['usr_phone']), 0, 1, 'R');
         $pdf->SetXY(125, 35);

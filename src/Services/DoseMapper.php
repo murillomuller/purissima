@@ -67,6 +67,10 @@ class DoseMapper
         'vital woman night premium - pouch' => '1 DOSE = 1 SCOOP',
         'vital woman night premium - caps' => '1 DOSE = 3 CÁPSULAS',
         
+        // Vital Woman Special Day Essencial
+        'vital woman special day essencial - pouch' => '1 DOSE = 1 SCOOP',
+        'vital woman special day essencial - caps' => '1 DOSE = 2 CÁPSULAS',
+        
         // ===== LONGEVITY MEN PRODUCTS =====
         // Longevity Man Day Essencial
         'longevity man day essencial - pouch' => '1 DOSE = 1 SCOOP',
@@ -137,6 +141,10 @@ class DoseMapper
         'puríssima gestante night essencial - caps' => '1 DOSE = 1 CÁPSULA',
         'puríssima gestante night avançada - caps' => '1 DOSE = 2 CÁPSULAS',
         'puríssima gestante night premium - caps' => '1 DOSE = 2 CÁPSULAS',
+        
+        // Puríssima Gestante with flavors (flavors are removed during normalization)
+        'puríssima gestante day' => '1 DOSE = 1 SCOOP', // for "Puríssima Gestante Dia - Baunilha do Tahiti"
+        'puríssima gestante night' => '1 DOSE = 1 SCOOP', // for "Puríssima Gestante Noite - Frutas Vermelhas"
 
         // ===== SPECIAL PRODUCTS =====
         'my baby' => '1 DOSE = 1 SCOOP',
@@ -287,6 +295,13 @@ class DoseMapper
             'longevity man', 'longevity woman', 'longevity woman',
             'vital man', 'vital woman', 'vital woman',
             'vital man', 'vital woman', 'vital woman'
+        ], $normalized);
+        
+        // Handle Vital Woman Special Day Essencial
+        $normalized = str_replace([
+            'vital woman special day essencial'
+        ], [
+            'vital woman special day essencial'
         ], $normalized);
         
         // Handle Puríssima Gestante products

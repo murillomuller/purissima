@@ -75,11 +75,22 @@ ob_start();
         <!-- Orders Table -->
         <div id="ordersTable" class="bg-white rounded-xl shadow-lg overflow-hidden hidden w-full">
             <div class="px-6 py-4 bg-gradient-to-r from-primary to-secondary">
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
                     </svg>
                     <h2 class="text-xl font-bold text-white">Lista de Pedidos</h2>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="text-white/80" id="selectedCount">0 selecionado(s)</div>
+                        <button id="bulkGenerateBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors duration-200">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>Receituário em Lote</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-2 mt-1">
                     <svg class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,6 +103,9 @@ ob_start();
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            <th class="px-4 py-4">
+                                <input id="selectAll" type="checkbox" class="h-4 w-4 border-gray-300 rounded">
+                            </th>
                             <?php
                             $columns = [
                                 'ord_id' => 'ID do Pedido',
@@ -217,6 +231,9 @@ function displayOrders(orders) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors duration-200';
         tr.innerHTML = `
+            <td class="px-4 py-4">
+                <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}">
+            </td>
             <td class="px-6 py-4 font-semibold text-gray-900">#${order.ord_id}</td>
             <td class="px-6 py-4">${escapeHtml(order.usr_name)}</td>
             <td class="px-6 py-4 text-gray-600">${escapeHtml(order.usr_email)}</td>
@@ -257,6 +274,7 @@ function displayOrders(orders) {
         tbody.appendChild(tr);
     });
     document.getElementById('ordersTable').classList.remove('hidden');
+    attachSelectionHandlers();
 }
 
 function sortTable(column) {
@@ -290,6 +308,36 @@ function updateSortIndicators(column, direction) {
         el.innerHTML = `<svg class='w-3 h-3 ${c === column ? 'text-primary' : 'text-gray-400'}' fill='currentColor' viewBox='0 0 20 20'>
             <path d='${direction === 'asc' ? 'M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z' : 'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z'}'></path></svg>`;
     });
+}
+
+function attachSelectionHandlers() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = Array.from(document.querySelectorAll('.row-select'));
+    const bulkBtn = document.getElementById('bulkGenerateBtn');
+    const selectedCount = document.getElementById('selectedCount');
+
+    function refreshUI() {
+        const checked = checkboxes.filter(cb => cb.checked);
+        selectedCount.textContent = `${checked.length} selecionado(s)`;
+        bulkBtn.disabled = checked.length === 0;
+        selectAll.checked = checked.length > 0 && checked.length === checkboxes.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+    }
+
+    selectAll.addEventListener('change', () => {
+        const state = selectAll.checked;
+        checkboxes.forEach(cb => { cb.checked = state; });
+        refreshUI();
+    });
+    checkboxes.forEach(cb => cb.addEventListener('change', refreshUI));
+
+    bulkBtn.addEventListener('click', () => {
+        const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+        if (ids.length === 0) return;
+        generateBatch(ids);
+    });
+
+    refreshUI();
 }
 
 function escapeHtml(t) {
@@ -471,6 +519,33 @@ function generatePrescription(id) {
         // Re-enable the button
         button.disabled = false;
         button.innerHTML = originalContent;
+    });
+}
+
+function generateBatch(ids) {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+
+    fetch('/orders/generate-batch-prescriptions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `order_ids=${encodeURIComponent(JSON.stringify(ids))}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        if (data.success) {
+            window.open(`/download-prescription?filename=${data.filename}`, '_blank');
+            showSuccessMessage('Receituários gerados com sucesso!');
+        } else {
+            showErrorMessage(data.error || 'Erro ao gerar receituários em lote');
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        console.error('Error generating batch prescriptions:', error);
+        showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
     });
 }
 
