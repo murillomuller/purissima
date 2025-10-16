@@ -809,9 +809,9 @@ class TcpdfService
         } catch (\Exception $e) {
             $pdf->SetFont('helvetica', '', 7.7);
         }
-        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientInfoSpacing);
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing);
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
-        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 2));
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + $this->patientInfoSpacing);
         $genero = $orderData['Genero'] ?? null;
         $sexoLabel = '[Não informado]';
         if ($genero === 1 || $genero === '1') {
@@ -820,11 +820,11 @@ class TcpdfService
             $sexoLabel = 'Feminino';
         }
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: ' . $sexoLabel), 0, 1, 'R');
-        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 3));
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 2));
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Telefone: ' . $this->formatPhoneNumber($orderData['usr_phone'])), 0, 1, 'R');
         // Set font to helvetica bold for Prescrição (more reliable than opensansb)
         $pdf->SetFont('helvetica', 'B', 7.7);
-        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 4));
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 3));
         $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
         
         // Date at bottom right

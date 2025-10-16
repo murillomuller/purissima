@@ -83,6 +83,12 @@ ob_start();
                     <h2 class="text-xl font-bold text-white">Lista de Pedidos</h2>
                     </div>
                     <div class="flex items-center space-x-3">
+                        <div class="relative">
+                            <input id="searchInput" type="text" placeholder="Buscar em todos os campos" class="px-3 py-2 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80" />
+                            <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/></svg>
+                            </div>
+                        </div>
                         <div class="text-white/80" id="selectedCount">0 selecionado(s)</div>
                         <button id="bulkGenerateBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors duration-200">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,6 +192,7 @@ ob_start();
 <script>
 let ordersData = [];
 let currentSort = { column: 'ord_id', direction: 'desc' };
+let searchQuery = '';
 
 function refreshOrders() {
     loadOrders();
@@ -215,10 +222,11 @@ function displayOrders(orders) {
         return;
     }
 
-    document.getElementById('ordersCount').textContent = `${orders.length} pedido(s) encontrado(s)`;
-    let sortedOrders = orders;
+    const filtered = filterOrders(orders, searchQuery);
+    document.getElementById('ordersCount').textContent = `${filtered.length} pedido(s) encontrado(s)`;
+    let sortedOrders = filtered;
     if (currentSort.column !== 'ord_id' || currentSort.direction !== 'desc') {
-        sortedOrders = sortOrders(orders, currentSort.column, currentSort.direction);
+        sortedOrders = sortOrders(filtered, currentSort.column, currentSort.direction);
     }
 
     updateSortIndicators(currentSort.column, currentSort.direction);
@@ -298,6 +306,35 @@ function sortOrders(orders, column, direction) {
         }
         return (valA < valB ? -1 : valA > valB ? 1 : 0) * (direction === 'asc' ? 1 : -1);
     });
+}
+
+function filterOrders(orders, query) {
+    if (!query) return orders;
+    const q = query.toString().toLowerCase();
+    return orders.filter(entry => {
+        const o = entry.order || {};
+        const items = entry.items || [];
+        // Flatten order fields
+        const orderValues = Object.values(o).map(v => (v == null ? '' : String(v).toLowerCase()));
+        // Include items fields (name, subscription, composition)
+        const itemValues = items.flatMap(it => {
+            const name = it.itm_name ? String(it.itm_name).toLowerCase() : '';
+            const subscription = it.subscription ? String(it.subscription).toLowerCase() : '';
+            const composition = it.composition ? String(it.composition).toLowerCase() : '';
+            return [name, subscription, composition];
+        });
+        const haystack = orderValues.concat(itemValues);
+        return haystack.some(val => val.includes(q));
+    });
+}
+
+function debounce(fn, delay) {
+    let t;
+    return function() {
+        const args = arguments;
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(null, args), delay);
+    }
 }
 
 function updateSortIndicators(column, direction) {
@@ -550,6 +587,17 @@ function generateBatch(ids) {
 }
 
 document.addEventListener('DOMContentLoaded', loadOrders);
+
+// Wire search input with debounce
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('searchInput');
+    if (!input) return;
+    const handler = debounce((e) => {
+        searchQuery = e.target.value || '';
+        displayOrders(ordersData);
+    }, 200);
+    input.addEventListener('input', handler);
+});
 </script>
 
 <?php
