@@ -98,6 +98,31 @@ class TcpdfService
         }
     }
 
+    /**
+     * Log PDF download to a log file
+     */
+    private function logPdfDownload(string $type, string $orderId, string $filename): void
+    {
+        $logPath = __DIR__ . '/../../storage/logs/pdf-downloads.log';
+        $logDir = dirname($logPath);
+        
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+        
+        $timestamp = date('Y-m-d H:i:s');
+        $logEntry = "[$timestamp] $type - Order: $orderId - File: $filename" . PHP_EOL;
+        
+        file_put_contents($logPath, $logEntry, FILE_APPEND | LOCK_EX);
+        
+        $this->logger->info('PDF download logged', [
+            'type' => $type,
+            'order_id' => $orderId,
+            'filename' => $filename,
+            'log_path' => $logPath
+        ]);
+    }
+
     public function createPrescriptionPdf(array $orderData, array $items): string
     {
 		$filename = 'receituario_' . $orderData['ord_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
@@ -150,13 +175,10 @@ class TcpdfService
 	public function createBatchPrescriptionPdf(array $orders): string
 	{
 		$filename = 'receituario_batch_' . date('Y-m-d_H-i-s') . '.pdf';
-		$filepath = $this->outputPath . '/' . $filename;
 		
 		$this->logger->info('Generating batch prescription PDF', [
 			'orders_count' => count($orders)
 		]);
-		
-		ob_start();
 		
 		try {
 			$basePdfPath = __DIR__ . '/../../storage/pdf/receituario-base.pdf';
@@ -170,26 +192,28 @@ class TcpdfService
 			
 			$this->preparePdf($pdf);
 			
+			$orderIds = [];
 			foreach ($orders as $o) {
 				if (!isset($o['order']) || !isset($o['items'])) {
 					continue;
 				}
+				$orderIds[] = $o['order']['ord_id'];
 				$this->renderOrderPrescription($pdf, $templateId, $o['order'], $o['items']);
 			}
 			
-			$pdf->Output($filepath, 'F');
-			ob_end_clean();
+			// Log the batch download
+			$this->logPdfDownload('receituario_batch', implode(',', $orderIds), $filename);
 			
-			$this->logger->info('Batch prescription PDF created', [
+			// Output the PDF directly to browser
+			$pdf->Output($filename, 'D');
+			
+			$this->logger->info('Batch prescription PDF generated and sent to browser', [
 				'filename' => $filename,
-				'filepath' => $filepath,
-				'file_exists' => file_exists($filepath),
-				'file_size' => file_exists($filepath) ? filesize($filepath) : 0
+				'orders_count' => count($orders)
 			]);
 			
 			return $filename;
 		} catch (\Exception $e) {
-			ob_end_clean();
 			$this->logger->error('Batch prescription PDF creation failed', [
 				'error' => $e->getMessage()
 			]);
@@ -776,12 +800,14 @@ class TcpdfService
         // Bottom information - positioned at bottom left
         $bottomY = $y + $height - 12; // 12mm from bottom
         
-        // REQ information - extract from items
+        // REQ information - extract from rotuloData
         $reqValues = [];
-        foreach ($items as $item) {
-            if (isset($item['req']) && !empty($item['req'])) {
-                $reqValues[] = trim((string)$item['req']);
-            }
+        if (isset($rotuloData['req_values']) && is_array($rotuloData['req_values'])) {
+            $reqValues = array_filter($rotuloData['req_values'], function($req) {
+                return !empty(trim((string)$req));
+            });
+        } elseif (isset($rotuloData['req']) && !empty($rotuloData['req'])) {
+            $reqValues = [trim((string)$rotuloData['req'])];
         }
         
         if (!empty($reqValues)) {
@@ -1078,6 +1104,7 @@ class TcpdfService
         
         // Add Purissima social SVG at bottom of left column
         // Use white version when text color is white (dark backgrounds)
+        $productName = $rotuloData['product_name'] ?? '';
         $colorScheme = $this->colorSchemeService->getColorSchemeForProduct($productName);
         $isWhiteText = ($colorScheme['text'][0] == 0 && $colorScheme['text'][1] == 0 && 
                        $colorScheme['text'][2] == 0 && $colorScheme['text'][3] == 0);
@@ -1529,7 +1556,6 @@ class TcpdfService
         }
 
         $filename = 'rotulos_' . ($orderData['ord_id'] ?? 'multiple') . '_' . date('Y-m-d_H-i-s') . '.pdf';
-        $filepath = $this->outputPath . '/' . $filename;
 
         $this->logger->info('Generating Multiple Rotulos PDF from Order', [
             'order_id' => $orderData['ord_id'] ?? null,
@@ -1537,7 +1563,10 @@ class TcpdfService
             'filename' => $filename
         ]);
 
-        ob_start();
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
+
         try {
             // Start with custom dimensions (1417 x 3228px = 120mm x 273mm at 300 DPI) - work vertically throughout
             $pdf = new Fpdi('P', 'mm', [502, 500]); // Custom page size
@@ -1653,19 +1682,19 @@ class TcpdfService
             // Rotate the entire page container 90 degrees at the end for horizontal printing
             $pdf->Rotate(90, 60, 136.5); // Rotate around center point (120/2, 273/2)
 
-            $pdf->Output($filepath, 'F');
-            ob_end_clean();
+            // Log the download
+            $this->logPdfDownload('rotulos', $orderData['ord_id'] ?? 'multiple', $filename);
 
-            $this->logger->info('Multiple Rotulos PDF created from Order', [
+            // Output the PDF directly to browser
+            $pdf->Output($filename, 'D');
+
+            $this->logger->info('Multiple Rotulos PDF generated and sent to browser', [
                 'filename' => $filename,
-                'filepath' => $filepath,
                 'total_rotulos' => count($items),
-                'pages' => $currentPage,
-                'file_size' => file_exists($filepath) ? filesize($filepath) : 0
+                'pages' => $currentPage
             ]);
             return $filename;
         } catch (\Exception $e) {
-            ob_end_clean();
             $this->logger->error('Failed to create multiple rotulos PDF from Order', [
                 'error' => $e->getMessage(),
                 'order_id' => $orderData['ord_id'] ?? null,
@@ -1910,23 +1939,33 @@ class TcpdfService
 
     public function createStickerPdf(array $orderData, array $items): string
     {
-        // Check if all items have req field
-        $allItemsHaveReq = true;
-        $reqValues = [];
-        foreach ($items as $item) {
-            if (!isset($item['req']) || trim((string)$item['req']) === '') {
-                $allItemsHaveReq = false;
-                break;
-            }
-            $reqValues[] = trim((string)$item['req']);
-        }
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
         
-        if (!$allItemsHaveReq) {
-            throw new \Exception('All items must have req field to generate Sticker');
-        }
+        try {
+            // Check if all items have req field
+            $allItemsHaveReq = true;
+            $reqValues = [];
+            foreach ($items as $item) {
+                if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                    $allItemsHaveReq = false;
+                    break;
+                }
+                $reqValues[] = trim((string)$item['req']);
+            }
+            
+            if (!$allItemsHaveReq) {
+                throw new \Exception('All items must have req field to generate Sticker');
+            }
 
-        // Use multiple rotulos function to create one rotulo per item
-        return $this->createMultipleRotulosPdf($orderData, $items);
+            // Use multiple rotulos function to create one rotulo per item
+            return $this->createMultipleRotulosPdf($orderData, $items);
+        } finally {
+            // Restore error reporting settings
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
+        }
     }
 
     /**

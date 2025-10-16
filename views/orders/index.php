@@ -224,11 +224,23 @@ function displayOrders(orders) {
     document.getElementById('loadingState').classList.add('hidden');
     if (!orders || orders.length === 0) {
         document.getElementById('emptyState').classList.remove('hidden');
+        document.getElementById('ordersTable').classList.add('hidden');
         return;
     }
 
     const filtered = filterOrders(orders, searchQuery);
     document.getElementById('ordersCount').textContent = `${filtered.length} pedido(s) encontrado(s)`;
+    
+    // Show/hide table based on results
+    if (filtered.length === 0) {
+        document.getElementById('emptyState').classList.remove('hidden');
+        document.getElementById('ordersTable').classList.add('hidden');
+        return;
+    } else {
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('ordersTable').classList.remove('hidden');
+    }
+    
     let sortedOrders = filtered;
     if (currentSort.column !== 'ord_id' || currentSort.direction !== 'desc') {
         sortedOrders = sortOrders(filtered, currentSort.column, currentSort.direction);
@@ -339,21 +351,32 @@ function sortOrders(orders, column, direction) {
 }
 
 function filterOrders(orders, query) {
-    if (!query) return orders;
-    const q = query.toString().toLowerCase();
+    if (!query || query.trim() === '') return orders;
+    
+    const q = query.toString().toLowerCase().trim();
+    if (q.length === 0) return orders;
+    
     return orders.filter(entry => {
         const o = entry.order || {};
         const items = entry.items || [];
-        // Flatten order fields
-        const orderValues = Object.values(o).map(v => (v == null ? '' : String(v).toLowerCase()));
-        // Include items fields (name, composition)
-        const itemValues = items.flatMap(it => {
-            const name = it.itm_name ? String(it.itm_name).toLowerCase() : '';
-            const composition = it.composition ? String(it.composition).toLowerCase() : '';
-            return [name, composition];
-        });
-        const haystack = orderValues.concat(itemValues);
-        return haystack.some(val => val.includes(q));
+        
+        // Check order fields first (most common searches)
+        if (o.ord_id && String(o.ord_id).toLowerCase().includes(q)) return true;
+        if (o.usr_name && String(o.usr_name).toLowerCase().includes(q)) return true;
+        if (o.usr_email && String(o.usr_email).toLowerCase().includes(q)) return true;
+        if (o.usr_cpf && String(o.usr_cpf).toLowerCase().includes(q)) return true;
+        if (o.usr_phone && String(o.usr_phone).toLowerCase().includes(q)) return true;
+        if (o.chg_status && String(o.chg_status).toLowerCase().includes(q)) return true;
+        if (o.created_at && String(o.created_at).toLowerCase().includes(q)) return true;
+        
+        // Check item fields only if order fields don't match
+        for (const item of items) {
+            if (item.itm_name && String(item.itm_name).toLowerCase().includes(q)) return true;
+            if (item.composition && String(item.composition).toLowerCase().includes(q)) return true;
+            if (item.req && String(item.req).toLowerCase().includes(q)) return true;
+        }
+        
+        return false;
     });
 }
 
@@ -586,20 +609,40 @@ function generatePrescription(id) {
         },
         body: `order_id=${id}`
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(response => {
         // Hide loading overlay
         document.getElementById('loadingOverlay').classList.add('hidden');
         
-        if (data.success) {
-            // Automatically download the PDF
-            window.open(`/download-prescription?filename=${data.filename}`, '_blank');
-            
-            // Show success message
-            showSuccessMessage(`Receituário gerado e baixado com sucesso!`);
+        if (response.ok) {
+            // Check if response is PDF (content-type)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/pdf')) {
+                // Create blob and download
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `receituario_${id}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    // Show success message
+                    showSuccessMessage(`Receituário gerado e baixado com sucesso!`);
+                });
+            } else {
+                // Try to parse as JSON for error messages
+                return response.json().then(data => {
+                    if (data.success) {
+                        showSuccessMessage(`Receituário gerado com sucesso!`);
+                    } else {
+                        showErrorMessage(data.error || 'Erro ao gerar receituário');
+                    }
+                });
+            }
         } else {
-            // Show error message
-            showErrorMessage(data.error || 'Erro ao gerar receituário');
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
     })
     .catch(error => {
@@ -626,14 +669,39 @@ function generateBatch(ids) {
         },
         body: `order_ids=${encodeURIComponent(JSON.stringify(ids))}`
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(response => {
         document.getElementById('loadingOverlay').classList.add('hidden');
-        if (data.success) {
-            window.open(`/download-prescription?filename=${data.filename}`, '_blank');
-            showSuccessMessage('Receituários gerados com sucesso!');
+        
+        if (response.ok) {
+            // Check if response is PDF (content-type)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/pdf')) {
+                // Create blob and download
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `receituario_batch_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    // Show success message
+                    showSuccessMessage('Receituários gerados com sucesso!');
+                });
+            } else {
+                // Try to parse as JSON for error messages
+                return response.json().then(data => {
+                    if (data.success) {
+                        showSuccessMessage('Receituários gerados com sucesso!');
+                    } else {
+                        showErrorMessage(data.error || 'Erro ao gerar receituários em lote');
+                    }
+                });
+            }
         } else {
-            showErrorMessage(data.error || 'Erro ao gerar receituários em lote');
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
     })
     .catch(error => {
@@ -659,13 +727,37 @@ function generateSticker(id) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `order_id=${id}`
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            window.open(`/download-prescription?filename=${data.filename}`, '_blank');
-            showSuccessMessage('Rótulo gerado e baixado com sucesso!');
+    .then(response => {
+        if (response.ok) {
+            // Check if response is PDF (content-type)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/pdf')) {
+                // Create blob and download
+                return response.blob().then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `rotulos_${id}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    // Show success message
+                    showSuccessMessage('Rótulo gerado e baixado com sucesso!');
+                });
+            } else {
+                // Try to parse as JSON for error messages
+                return response.json().then(data => {
+                    if (data.success) {
+                        showSuccessMessage('Rótulo gerado com sucesso!');
+                    } else {
+                        showErrorMessage(data.error || 'Erro ao gerar rótulo');
+                    }
+                });
+            }
         } else {
-            showErrorMessage(data.error || 'Erro ao gerar rótulo');
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
     })
     .catch(() => showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.'))
@@ -684,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const handler = debounce((e) => {
         searchQuery = e.target.value || '';
         displayOrders(ordersData);
-    }, 200);
+    }, 100);
     input.addEventListener('input', handler);
 });
 </script>

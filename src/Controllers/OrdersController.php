@@ -74,23 +74,20 @@ class OrdersController extends BaseController
     public function generatePrescription(Request $request)
     {
         try {
-            ob_start();
-
             $orderId = $request->get('order_id');
             if (empty($orderId)) {
-                ob_end_clean();
                 return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
             }
 
             $order = $this->purissimaApi->getOrderById($orderId);
             if (!$order) {
-                ob_end_clean();
                 return $this->json(['success' => false, 'error' => 'Order not found'], 404);
             }
 
+            // This will output the PDF directly to browser and log the download
             $filename = $this->pdfService->createPrescriptionPdf($order['order'], $order['items']);
-
-            ob_end_clean();
+            
+            // This line should never be reached as the PDF is output directly
             return $this->json([
                 'success' => true,
                 'filename' => $filename,
@@ -98,7 +95,6 @@ class OrdersController extends BaseController
             ]);
 
         } catch (\Exception $e) {
-            ob_end_clean();
             $this->logger->error('Failed to generate prescription', [
                 'order_id' => $request->get('order_id'),
                 'error' => $e->getMessage()
@@ -142,17 +138,13 @@ class OrdersController extends BaseController
     public function generateSticker(Request $request)
     {
         try {
-            ob_start();
-
             $orderId = $request->get('order_id');
             if (empty($orderId)) {
-                ob_end_clean();
                 return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
             }
 
             $order = $this->purissimaApi->getOrderById($orderId);
             if (!$order || !isset($order['order'])) {
-                ob_end_clean();
                 return $this->json(['success' => false, 'error' => 'Order not found'], 404);
             }
 
@@ -169,20 +161,19 @@ class OrdersController extends BaseController
             }
             
             if (!$allItemsHaveReq) {
-                ob_end_clean();
                 return $this->json(['success' => false, 'error' => 'Todos os itens devem ter campo req preenchido'], 400);
             }
 
+            // This will output the PDF directly to browser and log the download
             $filename = $this->pdfService->createStickerPdf($orderData, $items);
-
-            ob_end_clean();
+            
+            // This line should never be reached as the PDF is output directly
             return $this->json([
                 'success' => true,
                 'filename' => $filename,
                 'message' => 'Sticker gerado com sucesso'
             ]);
         } catch (\Exception $e) {
-            ob_end_clean();
             $this->logger->error('Failed to generate sticker', [
                 'order_id' => $request->get('order_id'),
                 'error' => $e->getMessage()
@@ -197,10 +188,8 @@ class OrdersController extends BaseController
 	public function generateBatchPrescriptions(Request $request)
 	{
 		try {
-			ob_start();
 			$ids = $request->get('order_ids');
 			if (empty($ids)) {
-				ob_end_clean();
 				return $this->json(['success' => false, 'error' => 'Order IDs are required'], 400);
 			}
 			
@@ -215,7 +204,6 @@ class OrdersController extends BaseController
 			}
 			
 			if (!is_array($ids) || count($ids) === 0) {
-				ob_end_clean();
 				return $this->json(['success' => false, 'error' => 'Invalid order IDs'], 400);
 			}
 			
@@ -238,20 +226,19 @@ class OrdersController extends BaseController
 			}
 			
 			if (count($orders) === 0) {
-				ob_end_clean();
 				return $this->json(['success' => false, 'error' => 'No valid orders found'], 404);
 			}
 			
+			// This will output the PDF directly to browser and log the download
 			$filename = $this->pdfService->createBatchPrescriptionPdf($orders);
 			
-			ob_end_clean();
+			// This line should never be reached as the PDF is output directly
 			return $this->json([
 				'success' => true,
 				'filename' => $filename,
 				'message' => 'Batch prescription generated successfully'
 			]);
 		} catch (\Exception $e) {
-			ob_end_clean();
 			$this->logger->error('Failed to generate batch prescriptions', [
 				'error' => $e->getMessage()
 			]);
