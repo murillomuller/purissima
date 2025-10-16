@@ -139,6 +139,61 @@ class OrdersController extends BaseController
         }
     }
 
+    public function generateSticker(Request $request)
+    {
+        try {
+            ob_start();
+
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                ob_end_clean();
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order || !isset($order['order'])) {
+                ob_end_clean();
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            $orderData = $order['order'];
+            $items = $order['items'] ?? [];
+            
+            // Check if all items have req field
+            $allItemsHaveReq = true;
+            foreach ($items as $item) {
+                if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                    $allItemsHaveReq = false;
+                    break;
+                }
+            }
+            
+            if (!$allItemsHaveReq) {
+                ob_end_clean();
+                return $this->json(['success' => false, 'error' => 'Todos os itens devem ter campo req preenchido'], 400);
+            }
+
+            $filename = $this->pdfService->createStickerPdf($orderData, $items);
+
+            ob_end_clean();
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Sticker gerado com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            ob_end_clean();
+            $this->logger->error('Failed to generate sticker', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao gerar Sticker: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
 	public function generateBatchPrescriptions(Request $request)
 	{
 		try {

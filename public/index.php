@@ -38,6 +38,7 @@ $router->get('/orders', [OrdersController::class, 'index']);
 $router->get('/orders/api', [OrdersController::class, 'getOrdersApi']); // Async orders endpoint
 $router->post('/orders/generate-prescription', [OrdersController::class, 'generatePrescription']);
 $router->post('/orders/generate-batch-prescriptions', [OrdersController::class, 'generateBatchPrescriptions']);
+$router->post('/orders/generate-sticker', [OrdersController::class, 'generateSticker']);
 $router->get('/download-prescription', [OrdersController::class, 'downloadPrescription']);
 
 // Handle the request

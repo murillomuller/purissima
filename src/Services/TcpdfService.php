@@ -393,6 +393,87 @@ class TcpdfService
     }
 
     /**
+     * Generate Sticker (Rótulo) PDF for an order
+     */
+    public function createStickerPdf(array $orderData, array $items): string
+    {
+        // Check if all items have req field
+        $allItemsHaveReq = true;
+        $reqValues = [];
+        foreach ($items as $item) {
+            if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                $allItemsHaveReq = false;
+                break;
+            }
+            $reqValues[] = trim((string)$item['req']);
+        }
+        
+        if (!$allItemsHaveReq) {
+            throw new \Exception('All items must have req field to generate Sticker');
+        }
+
+        $filename = 'rotulo_' . $orderData['ord_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
+        $filepath = $this->outputPath . '/' . $filename;
+
+        $this->logger->info('Generating Sticker PDF', [
+            'order_id' => $orderData['ord_id'] ?? null,
+            'req_values' => $reqValues,
+            'filename' => $filename
+        ]);
+
+        ob_start();
+        try {
+            // Simple label page (A6 landscape) without template
+            $pdf = new Fpdi('L', 'mm', 'A6');
+            $this->preparePdf($pdf);
+            $pdf->AddPage();
+
+            // Header
+            try { $pdf->SetFont('opensansb', '', 14); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 14); }
+            $this->setStandardTextColor($pdf);
+            $pdf->SetXY(10, 10);
+            $pdf->Cell(0, 8, $this->cleanText('Rótulo de Pedido'), 0, 1, 'L');
+
+            // Patient name
+            $name = $orderData['Nome'] ?? ($orderData['usr_name'] ?? '');
+            try { $pdf->SetFont('opensans', '', 11); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 11); }
+            $pdf->SetXY(10, 22);
+            $pdf->Cell(0, 6, $this->cleanText('Paciente: ' . $this->capitalizePatientName($name)), 0, 1, 'L');
+
+            // Prescription ID and Req values
+            $ordId = (string)($orderData['ord_id'] ?? '');
+            $pdf->SetXY(10, 30);
+            $pdf->Cell(0, 6, $this->cleanText('Prescrição: ' . $ordId), 0, 1, 'L');
+            try { $pdf->SetFont('opensansb', '', 13); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 13); }
+            $pdf->SetXY(10, 40);
+            $reqText = 'REQ: ' . implode(', ', $reqValues);
+            $pdf->Cell(0, 8, $this->cleanText($reqText), 0, 1, 'L');
+
+            // Date
+            try { $pdf->SetFont('opensans', '', 9); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 9); }
+            $pdf->SetXY(10, 52);
+            $pdf->Cell(0, 5, $this->formatDatePortuguese(), 0, 1, 'L');
+
+            $pdf->Output($filepath, 'F');
+            ob_end_clean();
+
+            $this->logger->info('Sticker PDF created', [
+                'filename' => $filename,
+                'filepath' => $filepath,
+                'file_size' => file_exists($filepath) ? filesize($filepath) : 0
+            ]);
+            return $filename;
+        } catch (\Exception $e) {
+            ob_end_clean();
+            $this->logger->error('Sticker PDF creation failed', [
+                'order_id' => $orderData['ord_id'] ?? null,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
      * Check if item is a pouch item
      */
     private function isPouchItem(array $item): bool

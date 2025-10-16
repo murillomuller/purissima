@@ -7,16 +7,16 @@ ob_start();
 
 <div class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
     <!-- Page Content -->
-    <div class="px-4 sm:px-6 lg:px-8 py-6 max-w-full">
-        <div class="flex items-center justify-end mb-6">
+    <div class="px-2 sm:px-4 lg:px-8 py-4 sm:py-6 max-w-full">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end mb-4 sm:mb-6 gap-3 sm:gap-0">
             <!-- Action Button -->
             <button onclick="refreshOrders()" 
-                    class="bg-primary hover:bg-secondary text-white px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center space-x-2 group">
-                <svg class="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="bg-primary hover:bg-secondary text-white px-4 sm:px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2 group w-full sm:w-auto">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                 </svg>
-                <span>Atualizar Pedidos</span>
+                <span class="text-sm sm:text-base">Atualizar Pedidos</span>
             </button>
         </div>
         <!-- Loading State -->
@@ -74,47 +74,50 @@ ob_start();
 
         <!-- Orders Table -->
         <div id="ordersTable" class="bg-white rounded-xl shadow-lg overflow-hidden hidden w-full">
-            <div class="px-6 py-4 bg-gradient-to-r from-primary to-secondary">
-                <div class="flex items-center justify-between">
+            <div class="px-3 sm:px-6 py-4 bg-gradient-to-r from-primary to-secondary">
+                <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                     <div class="flex items-center space-x-3">
-                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                    </svg>
-                    <h2 class="text-xl font-bold text-white">Lista de Pedidos</h2>
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                        </svg>
+                        <h2 class="text-lg sm:text-xl font-bold text-white">Lista de Pedidos</h2>
                     </div>
-                    <div class="flex items-center space-x-3">
-                        <div class="relative">
-                            <input id="searchInput" type="text" placeholder="Buscar em todos os campos" class="px-3 py-2 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80" />
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
+                        <div class="relative flex-1 sm:flex-none">
+                            <input id="searchInput" type="text" placeholder="Buscar pedidos..." class="w-full px-3 py-2 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80" />
                             <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/></svg>
                             </div>
                         </div>
-                        <div class="text-white/80" id="selectedCount">0 selecionado(s)</div>
-                        <button id="bulkGenerateBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors duration-200">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <span>Receituário em Lote</span>
-                        </button>
+                        <div class="flex items-center justify-between sm:justify-end space-x-3">
+                            <div class="text-white/80 text-sm" id="selectedCount">0 selecionado(s)</div>
+                            <button id="bulkGenerateBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <span class="hidden sm:inline">Receituário em Lote</span>
+                                <span class="sm:hidden">Lote</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 mt-1">
-                    <svg class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex items-center space-x-2 mt-3">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                     </svg>
-                    <p id="ordersCount" class="text-white/80">0 pedido(s) encontrado(s)</p>
+                    <p id="ordersCount" class="text-white/80 text-sm sm:text-base">0 pedido(s) encontrado(s)</p>
                 </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-4 py-4">
+                            <th class="px-2 sm:px-4 py-3 sm:py-4">
                                 <input id="selectAll" type="checkbox" class="h-4 w-4 border-gray-300 rounded">
                             </th>
                             <?php
                             $columns = [
-                                'ord_id' => 'ID do Pedido',
+                                'ord_id' => 'ID',
                                 'usr_name' => 'Cliente',
                                 'usr_email' => 'E-mail',
                                 'chg_status' => 'Status',
@@ -123,7 +126,7 @@ ob_start();
                             ];
                             foreach ($columns as $key => $label) {
                                 echo "
-                                <th onclick=\"sortTable('$key')\" class='px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200'>
+                                <th onclick=\"sortTable('$key')\" class='px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors duration-200 whitespace-nowrap'>
                                     <div class='flex items-center space-x-1'>
                                         <span>$label</span>
                                         <div id='sort-$key' class='flex flex-col'>
@@ -135,12 +138,13 @@ ob_start();
                                 </th>";
                             }
                             ?>
-                            <th class="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                            <th class="px-3 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
                                 <div class="flex items-center space-x-1">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
                                     </svg>
-                                    <span>Ações</span>
+                                    <span class="hidden sm:inline">Ações</span>
+                                    <span class="sm:hidden">Ações</span>
                                 </div>
                             </th>
                         </tr>
@@ -154,22 +158,22 @@ ob_start();
 
 <!-- Order Details Modal -->
 <div id="orderModal" class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-    <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-2xl rounded-xl bg-white">
-        <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
-            <div class="flex items-center space-x-3">
-                <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="relative top-2 sm:top-10 mx-auto p-3 sm:p-5 border w-11/12 sm:w-10/12 md:w-3/4 lg:w-1/2 xl:w-2/5 shadow-2xl rounded-xl bg-white max-h-[95vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
                 </svg>
-                <h3 class="text-2xl font-bold text-primary">Detalhes do Pedido</h3>
+                <h3 class="text-lg sm:text-xl lg:text-2xl font-bold text-primary truncate">Detalhes do Pedido</h3>
             </div>
-            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-lg hover:bg-gray-100">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-lg hover:bg-gray-100 flex-shrink-0">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
         </div>
-        <div id="orderDetails" class="space-y-6"></div>
+        <div id="orderDetails" class="space-y-4 sm:space-y-6"></div>
     </div>
 </div>
 
@@ -239,43 +243,68 @@ function displayOrders(orders) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors duration-200';
         tr.innerHTML = `
-            <td class="px-4 py-4">
+            <td class="px-2 sm:px-4 py-3 sm:py-4">
                 <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}">
             </td>
-            <td class="px-6 py-4 font-semibold text-gray-900">#${order.ord_id}</td>
-            <td class="px-6 py-4">${escapeHtml(order.usr_name)}</td>
-            <td class="px-6 py-4 text-gray-600">${escapeHtml(order.usr_email)}</td>
-            <td class="px-6 py-4">
-                <span class="px-3 py-1 text-xs font-semibold rounded-full ${order.chg_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">#${order.ord_id}</td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-600">
+                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_email)}">${escapeHtml(order.usr_email)}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <span class="px-2 sm:px-3 py-1 text-xs font-semibold rounded-full ${order.chg_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
                     ${order.chg_status === 'paid' ? 'Pago' : 'Pendente'}
                 </span>
             </td>
-            <td class="px-6 py-4">
-                <div class="flex items-center space-x-2">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <div class="flex items-center space-x-1 sm:space-x-2">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                     </svg>
-                    <span>${o.items.length} item(s)</span>
+                    <span class="text-xs sm:text-sm">${o.items.length}</span>
                 </div>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-600">${new Date(order.created_at).toLocaleString('pt-BR')}</td>
-            <td class="px-6 py-4">
-                <div class="flex items-center space-x-2">
-                    <button onclick="generatePrescription('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors duration-200">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">
+                <div class="hidden sm:block">${new Date(order.created_at).toLocaleString('pt-BR')}</div>
+                <div class="sm:hidden">${new Date(order.created_at).toLocaleDateString('pt-BR')}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 sm:space-x-2">
+                    <button onclick="generatePrescription('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        <span>Receituário</span>
+                        <span class="hidden sm:inline">Receituário</span>
+                        <span class="sm:hidden">REC</span>
                     </button>
-                    <button onclick="viewOrderDetails('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors duration-200">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${checkAllItemsHaveReq(o.items) ? 
+                        `<button onclick="generateSticker('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Rótulo</span>
+                            <span class="sm:hidden">RÓT</span>
+                        </button>` : 
+                        `<button disabled class="bg-gray-50 text-gray-400 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 cursor-not-allowed">
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Rótulo</span>
+                            <span class="sm:hidden">RÓT</span>
+                        </button>`
+                    }
+                    <button onclick="viewOrderDetails('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
                         </svg>
-                        <span>Detalhes</span>
+                        <span class="hidden sm:inline">Detalhes</span>
+                        <span class="sm:hidden">VER</span>
                     </button>
                 </div>
             </td>`;
@@ -496,6 +525,7 @@ function viewOrderDetails(id) {
                 ${items.map(i => `<div class='bg-white border border-gray-200 rounded-lg p-4 shadow-sm'>
                     <h5 class='font-semibold text-gray-900 mb-2'>${i.itm_name}</h5>
                     <p class='text-sm text-gray-600'>Assinatura: ${i.subscription}</p>
+                    ${i.req && i.req.trim() !== '' ? `<p class='text-sm text-blue-600 font-medium mt-1'>REQ: ${i.req}</p>` : `<p class='text-sm text-gray-400 mt-1'>REQ: Não informado</p>`}
                 </div>`).join('')}
             </div>
         </div>`;
@@ -583,6 +613,38 @@ function generateBatch(ids) {
         document.getElementById('loadingOverlay').classList.add('hidden');
         console.error('Error generating batch prescriptions:', error);
         showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+    });
+}
+
+function checkAllItemsHaveReq(items) {
+    if (!items || items.length === 0) return false;
+    return items.every(item => item.req && item.req.trim() !== '');
+}
+
+function generateSticker(id) {
+    const button = event.target.closest('button');
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Gerando...</span>`;
+
+    fetch('/orders/generate-sticker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `order_id=${id}`
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.open(`/download-prescription?filename=${data.filename}`, '_blank');
+            showSuccessMessage('Rótulo gerado e baixado com sucesso!');
+        } else {
+            showErrorMessage(data.error || 'Erro ao gerar rótulo');
+        }
+    })
+    .catch(() => showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.'))
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
     });
 }
 
