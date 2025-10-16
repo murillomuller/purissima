@@ -91,36 +91,7 @@ class PurissimaApiService
             // Deduplicate items within each order
             $deduplicatedResults = $this->deduplicateItems($utf8Results);
 
-            // Mock req field for items when in mock mode or for development testing
-            $mockMode = filter_var($_ENV['MOCK_MODE'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $isDevelopment = ($_ENV['APP_ENV'] ?? '') === 'development';
-            
-            if ($mockMode || $isDevelopment) {
-                foreach ($deduplicatedResults as $oid => &$odata) {
-                    if (isset($odata['items']) && is_array($odata['items'])) {
-                        // Check if all items already have req field
-                        $allHaveReq = true;
-                        foreach ($odata['items'] as $item) {
-                            if (!isset($item['req']) || $item['req'] === '' || $item['req'] === null) {
-                                $allHaveReq = false;
-                                break;
-                            }
-                        }
-                        
-                        // If not all items have req, mock it for this order
-                        if (!$allHaveReq) {
-                            foreach ($odata['items'] as &$item) {
-                                if (!isset($item['req']) || $item['req'] === '' || $item['req'] === null) {
-                                    $item['req'] = '321321';
-                                }
-                            }
-                            unset($item);
-                            
-                        }
-                    }
-                }
-                unset($odata);
-            }
+            // Note: req field should come from API data only, no hardcoded values
             
             return $deduplicatedResults;
 

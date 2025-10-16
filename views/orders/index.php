@@ -81,14 +81,6 @@ ob_start();
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
                         </svg>
                         <h2 class="text-lg sm:text-xl font-bold text-white">Lista de Pedidos</h2>
-                        <div id="mockModeIndicator" class="hidden">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-                                </svg>
-                                Modo de Teste
-                            </span>
-                        </div>
                     </div>
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
                         <div class="relative flex-1 sm:flex-none">
@@ -205,7 +197,6 @@ ob_start();
 let ordersData = [];
 let currentSort = { column: 'ord_id', direction: 'desc' };
 let searchQuery = '';
-let mockMode = false;
 
 function refreshOrders() {
     loadOrders();
@@ -222,15 +213,6 @@ function loadOrders() {
         .then(data => {
             if (data.success) {
                 ordersData = data.orders;
-                mockMode = data.mock_mode || false;
-                
-                // Show/hide mock mode indicator
-                const mockIndicator = document.getElementById('mockModeIndicator');
-                if (mockMode) {
-                    mockIndicator.classList.remove('hidden');
-                } else {
-                    mockIndicator.classList.add('hidden');
-                }
                 
                 displayOrders(ordersData);
             } else showError(data.error || 'Erro ao carregar pedidos');
@@ -299,7 +281,7 @@ function displayOrders(orders) {
                         <span class="hidden sm:inline">Receituário</span>
                         <span class="sm:hidden">REC</span>
                     </button>
-                    ${checkAllItemsHaveReq(o.items) || mockMode ? 
+                    ${checkAllItemsHaveReq(o.items) ? 
                         `<button onclick="generateSticker('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
                             <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
@@ -364,12 +346,11 @@ function filterOrders(orders, query) {
         const items = entry.items || [];
         // Flatten order fields
         const orderValues = Object.values(o).map(v => (v == null ? '' : String(v).toLowerCase()));
-        // Include items fields (name, subscription, composition)
+        // Include items fields (name, composition)
         const itemValues = items.flatMap(it => {
             const name = it.itm_name ? String(it.itm_name).toLowerCase() : '';
-            const subscription = it.subscription ? String(it.subscription).toLowerCase() : '';
             const composition = it.composition ? String(it.composition).toLowerCase() : '';
-            return [name, subscription, composition];
+            return [name, composition];
         });
         const haystack = orderValues.concat(itemValues);
         return haystack.some(val => val.includes(q));
@@ -543,9 +524,36 @@ function viewOrderDetails(id) {
             <div class='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 ${items.map(i => `<div class='bg-white border border-gray-200 rounded-lg p-4 shadow-sm'>
                     <h5 class='font-semibold text-gray-900 mb-2'>${i.itm_name}</h5>
-                    <p class='text-sm text-gray-600'>Assinatura: ${i.subscription}</p>
                     ${i.req && i.req.trim() !== '' ? `<p class='text-sm text-blue-600 font-medium mt-1'>REQ: ${i.req}</p>` : `<p class='text-sm text-gray-400 mt-1'>REQ: Não informado</p>`}
                 </div>`).join('')}
+            </div>
+        </div>
+        <div class='mt-6 pt-6 border-t border-gray-200'>
+            <h4 class='font-bold text-primary text-lg mb-4 flex items-center'>
+                <svg class='w-5 h-5 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4'></path></svg>
+                Ações
+            </h4>
+            <div class='flex flex-col sm:flex-row gap-3'>
+                <button onclick="generatePrescription('${order.ord_id}')" class='bg-primary hover:bg-secondary text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
+                    <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z'></path>
+                    </svg>
+                    <span>Gerar Receituário</span>
+                </button>
+                ${checkAllItemsHaveReq(items) ? 
+                    `<button onclick="generateSticker('${order.ord_id}')" class='bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
+                        <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01'></path>
+                        </svg>
+                        <span>Gerar Rótulo</span>
+                    </button>` : 
+                    `<button disabled class='bg-gray-50 text-gray-400 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 cursor-not-allowed shadow-md'>
+                        <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01'></path>
+                        </svg>
+                        <span>Gerar Rótulo</span>
+                    </button>`
+                }
             </div>
         </div>`;
     document.getElementById('orderModal').classList.remove('hidden');

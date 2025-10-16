@@ -101,12 +101,8 @@ class TcpdfService
     public function createPrescriptionPdf(array $orderData, array $items): string
     {
 		$filename = 'receituario_' . $orderData['ord_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
-		$filepath = $this->outputPath . '/' . $filename;
 
 		$this->logger->info('Using TCPDF service for PDF generation');
-		
-		// Suppress any output that might interfere with JSON response
-		ob_start();
 		
 		try {
 			// Use FPDI to import the base PDF template
@@ -124,26 +120,20 @@ class TcpdfService
 			// Render a single order
 			$this->renderOrderPrescription($pdf, $templateId, $orderData, $items);
 			
-			// Output the PDF
-			$pdf->Output($filepath, 'F');
+			// Log the download
+			$this->logPdfDownload('receituario', $orderData['ord_id'], $filename);
 			
-			// Clean any output buffer
-			ob_end_clean();
+			// Output the PDF directly to browser
+			$pdf->Output($filename, 'D');
 			
-			$this->logger->info('Prescription PDF created with TCPDF', [
+			$this->logger->info('Prescription PDF generated and sent to browser', [
 				'order_id' => $orderData['ord_id'],
-				'filename' => $filename,
-				'filepath' => $filepath,
-				'file_exists' => file_exists($filepath),
-				'file_size' => filesize($filepath)
+				'filename' => $filename
 			]);
 			
 			return $filename;
 			
 		} catch (\Exception $e) {
-			// Clean output buffer and log error
-			ob_end_clean();
-			
 			$this->logger->error('Prescription PDF creation failed', [
 				'order_id' => $orderData['ord_id'],
 				'error' => $e->getMessage(),
@@ -786,10 +776,20 @@ class TcpdfService
         // Bottom information - positioned at bottom left
         $bottomY = $y + $height - 12; // 12mm from bottom
         
-        // REQ information
-        try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
-        $pdf->SetXY($x + 1, $bottomY);
-        $pdf->Cell($contentWidth, 1.5, "REQ 08095875-1", 0, 1, 'L');
+        // REQ information - extract from items
+        $reqValues = [];
+        foreach ($items as $item) {
+            if (isset($item['req']) && !empty($item['req'])) {
+                $reqValues[] = trim((string)$item['req']);
+            }
+        }
+        
+        if (!empty($reqValues)) {
+            try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
+            $pdf->SetXY($x + 1, $bottomY);
+            $reqText = 'REQ ' . implode(', ', $reqValues);
+            $pdf->Cell($contentWidth, 1.5, $this->cleanText($reqText), 0, 1, 'L');
+        }
         
         // RT information
         try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
@@ -1898,7 +1898,7 @@ class TcpdfService
             $rotulosData[] = [
                 'patient_name' => 'Paciente Teste ' . $i,
                 'order_id' => 'ORD' . str_pad($i, 4, '0', STR_PAD_LEFT),
-                'req_values' => ['321321', '456456'],
+                'req_values' => [], // Empty REQ values for test data - will be populated from actual items
                 'product_name' => $productType === 'DIA' ? 'Suplemento DIA' : ($productType === 'NOITE' ? 'Suplemento NOITE' : 'Suplemento Padrão'),
                 'product_type' => $productType,
                 'dosage' => '2 cápsulas com as refeições'

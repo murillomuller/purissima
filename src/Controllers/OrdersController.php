@@ -46,14 +46,9 @@ class OrdersController extends BaseController
             // Reverse the order and reindex numerically so JSON becomes a list, not an object
             $processedOrders = array_values(array_reverse($processedOrders, true));
 
-            // Include mock mode information for frontend
-            $mockMode = filter_var($_ENV['MOCK_MODE'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $isDevelopment = ($_ENV['APP_ENV'] ?? '') === 'development';
-
             return $this->json([
                 'success' => true,
-                'orders' => $processedOrders,
-                'mock_mode' => $mockMode || $isDevelopment
+                'orders' => $processedOrders
             ]);
 
         } catch (\Exception $e) {
@@ -173,29 +168,9 @@ class OrdersController extends BaseController
                 }
             }
             
-            // Allow rotulo generation in mock mode or development environment
-            $mockMode = filter_var($_ENV['MOCK_MODE'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $isDevelopment = ($_ENV['APP_ENV'] ?? '') === 'development';
-            
-            if (!$allItemsHaveReq && !$mockMode && !$isDevelopment) {
+            if (!$allItemsHaveReq) {
                 ob_end_clean();
                 return $this->json(['success' => false, 'error' => 'Todos os itens devem ter campo req preenchido'], 400);
-            }
-            
-            // In mock mode or development, add mock req values if missing
-            if ((!$allItemsHaveReq) && ($mockMode || $isDevelopment)) {
-                foreach ($items as &$item) {
-                    if (!isset($item['req']) || trim((string)$item['req']) === '') {
-                        $item['req'] = '321321';
-                    }
-                }
-                unset($item);
-                
-                $this->logger->info('Mock req field added for rotulo generation', [
-                    'order_id' => $orderId,
-                    'mock_mode' => $mockMode,
-                    'is_development' => $isDevelopment
-                ]);
             }
 
             $filename = $this->pdfService->createStickerPdf($orderData, $items);
