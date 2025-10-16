@@ -982,7 +982,7 @@ class TcpdfService
         try { $pdf->SetFont('brandontextblack', '', 5.5); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 5.5); }
         $pdf->SetXY($rightColumnX+4, $rightColumnY);
         $pdf->Cell($rightColumnWidth - 2, 3, $this->cleanText('60 CÁPSULAS | 30 DOSES'), 0, 1, 'L');
-        $rightColumnY += 4;
+        $rightColumnY += 3;
         
         // Dosage information from item (like receituario) - only if not empty
         
@@ -1191,7 +1191,7 @@ class TcpdfService
         // Capsule information (60 CAPSULAS | 30 DOSES)
         try { $pdf->SetFont('brandontextblack', '', 5.5); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 5.5); }
         $pdf->SetXY($rightColumnX+4, $rightColumnY);
-        $pdf->Cell($rightColumnWidth - 2, 3, $this->cleanText('60 CÁPSULAS | 30 DOSES'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 2, 3, $this->cleanText('26 DOSES'), 0, 1, 'L');
         $rightColumnY += 4;
         
         // Dosage information from item (like receituario) - only if not empty
@@ -1901,18 +1901,48 @@ class TcpdfService
      */
     private function extractDosageFromItem(array $item): string
     {
+        // First, try to get dosage from DoseMapper
+        $itemName = $item['itm_name'] ?? $item['name'] ?? '';
+        if (!empty($itemName)) {
+            $doseText = $this->doseMapper->getDosageText($itemName);
+            $this->logger->debug('DoseMapper lookup attempt', [
+                'item_name' => $itemName,
+                'dose_text' => $doseText,
+                'is_empty' => empty($doseText)
+            ]);
+            if (!empty($doseText)) {
+                $this->logger->debug('Dosage found via DoseMapper', [
+                    'item_name' => $itemName,
+                    'dose_text' => $doseText
+                ]);
+                return $doseText;
+            }
+        }
+        
         // Check for dosage in various fields
         $dosage = $item['dosage'] ?? $item['dose'] ?? $item['posologia'] ?? '';
         
         if (!empty($dosage)) {
+            $this->logger->debug('Dosage found in item fields', [
+                'item_name' => $itemName,
+                'dosage' => $dosage
+            ]);
             return $dosage;
         }
         
         // Check for subscription field
         $subscription = $item['subscription'] ?? '';
         if (!empty($subscription)) {
+            $this->logger->debug('Dosage found in subscription field', [
+                'item_name' => $itemName,
+                'subscription' => $subscription
+            ]);
             return $subscription;
         }
+        
+        $this->logger->debug('No dosage found for item', [
+            'item_name' => $itemName
+        ]);
         
         // Default dosage
         return '';
