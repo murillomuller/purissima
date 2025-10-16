@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Purissima Application Post-Build Script for Jenkins Freestyle
-# This script deploys the built Docker image
+# Purissima Application Post-Build Script for Jenkins Freestyle (Simplified)
+# This script deploys the built Docker image with simplified health checks
 
 set -e  # Exit on any error
 
@@ -80,12 +80,10 @@ print_status "Container started successfully"
 
 # Step 3: Wait for container to be ready
 print_step "Waiting for container to be ready..."
-sleep 15
+sleep 20
 
-# Step 4: Health check
+# Step 4: Simple health check
 print_step "Performing health check..."
-# Wait a bit more for the container to fully start
-sleep 5
 
 # Check if container is running
 if ! docker ps | grep -q "${CONTAINER_NAME}"; then
@@ -94,25 +92,14 @@ if ! docker ps | grep -q "${CONTAINER_NAME}"; then
     exit 1
 fi
 
-# Try health check on the external port
-if curl -f http://localhost:${EXTERNAL_PORT}/ > /dev/null 2>&1; then
-    print_status "Health check passed - Application is running!"
+# Check if PHP server started successfully
+if docker logs "${CONTAINER_NAME}" --tail 10 | grep -q "PHP.*Development Server.*started"; then
+    print_status "✅ Health check passed - PHP server is running!"
 else
-    print_warning "External port health check failed, checking container status..."
-    
-    # Check if container is healthy by looking at logs
-    if docker logs "${CONTAINER_NAME}" --tail 10 | grep -q "PHP.*Development Server.*started"; then
-        print_status "Container is running and PHP server started - Application should be accessible!"
-        print_warning "Note: External health check failed, but container appears healthy"
-        print_warning "Try accessing: http://your-unraid-ip:${EXTERNAL_PORT}"
-    else
-        print_error "Health check failed - Application may not be ready"
-        print_warning "Container logs:"
-        docker logs "${CONTAINER_NAME}" --tail 20
-        print_warning "Container status:"
-        docker ps | grep "${CONTAINER_NAME}"
-        exit 1
-    fi
+    print_error "Health check failed - PHP server may not have started"
+    print_warning "Container logs:"
+    docker logs "${CONTAINER_NAME}" --tail 20
+    exit 1
 fi
 
 # Step 5: Show container status

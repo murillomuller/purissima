@@ -15,6 +15,32 @@ class TcpdfService
     private string $fontsPath;
     private int $maxFileSize;
     private DoseMapper $doseMapper;
+    private int $headerLeftPosition;
+    private int $headerTextLeftPosition; // Separate position for header text (independent from background)
+    private int $headerTextYOffset; // Y offset for header text (independent from background)
+    private int $headerBackgroundWidth;
+    private int $headerBackgroundHeight;
+    private int $headerBackgroundXOffset;
+    private int $headerBackgroundYOffset;
+    private int $headerSpacing;
+    private int $patientInfoXPosition; // X position for patient information (right side)
+    private int $patientInfoWidth; // Width for patient information cells
+    private int $patientInfoHeight; // Height for patient information cells
+    private int $patientInfoStartY; // Starting Y position for patient information
+    private int $patientInfoSpacing; // Spacing between patient info lines
+    private int $patientNameSpacing; // Spacing after patient name
+    private int $doseInfoXPosition; // X position for dosage information
+    private int $doseInfoWidth; // Width for dosage information cells
+    private int $doseInfoHeight; // Height for dosage information cells
+    private int $doseInfoYOffset; // Y offset for dosage information relative to yPosition
+    private int $dateXPosition; // X position for date
+    private int $dateYPosition; // Y position for date
+    private int $pageBreakThreshold; // Y position threshold for page breaks
+    private int $newPageYPosition; // Y position when starting new page
+    private int $ingredientLineYOffset; // Y offset for ingredient dotted lines
+    private int $ingredientSpacing; // Spacing after ingredient sections
+    private int $dottedLineDashLength; // Length of dotted line dashes
+    private int $dottedLineGapLength; // Length of dotted line gaps
 
     public function __construct(LoggerService $logger)
     {
@@ -24,6 +50,32 @@ class TcpdfService
         $this->fontsPath = __DIR__ . '/../../storage/fonts';
         $this->maxFileSize = (int) ($_ENV['PDF_MAX_SIZE'] ?? 10485760); // 10MB default
         $this->doseMapper = new DoseMapper();
+        $this->headerLeftPosition = 20; // Global left position for all headers
+        $this->headerTextLeftPosition = 16; // Separate position for header text (independent from background)
+        $this->headerTextYOffset = -1; // Y offset for header text (negative moves text up, positive moves down)
+        $this->headerBackgroundWidth = 180; // Global width for header background boxes
+        $this->headerBackgroundHeight = 6; // Global height for header background boxes
+        $this->headerBackgroundXOffset = -5; // Global X offset for header background boxes (relative to headerLeftPosition)
+        $this->headerBackgroundYOffset = 0; // Global Y offset for header background boxes (relative to yPosition)
+        $this->headerSpacing = 4; // Global spacing after headers
+        $this->patientInfoXPosition = 125; // X position for patient information (right side)
+        $this->patientInfoWidth = 70; // Width for patient information cells
+        $this->patientInfoHeight = 5; // Height for patient information cells
+        $this->patientInfoStartY = 15; // Starting Y position for patient information
+        $this->patientInfoSpacing = 4; // Spacing between patient info lines
+        $this->patientNameSpacing = 6; // Spacing after patient name
+        $this->doseInfoXPosition = 130; // X position for dosage information
+        $this->doseInfoWidth = 70; // Width for dosage information cells
+        $this->doseInfoHeight = 6; // Height for dosage information cells
+        $this->doseInfoYOffset = -4; // Y offset for dosage information relative to yPosition
+        $this->dateXPosition = 134; // X position for date
+        $this->dateYPosition = 255; // Y position for date
+        $this->pageBreakThreshold = 250; // Y position threshold for page breaks
+        $this->newPageYPosition = 45; // Y position when starting new page
+        $this->ingredientLineYOffset = 2; // Y offset for ingredient dotted lines
+        $this->ingredientSpacing = 2; // Spacing after ingredient sections
+        $this->dottedLineDashLength = 2; // Length of dotted line dashes
+        $this->dottedLineGapLength = 2; // Length of dotted line gaps
 
         $this->ensureDirectoriesExist();
     }
@@ -97,6 +149,20 @@ class TcpdfService
                 $this->logger->warning('OpenSans PHP font file not found, using default fonts');
             }
             
+            // Add OpenSans Bold font for patient names
+            $openSansBoldPhpPath = $this->fontsPath . '/opensansb.php';
+            if (file_exists($openSansBoldPhpPath)) {
+                try {
+                    $pdf->AddFont('opensansb', '', $openSansBoldPhpPath, true);
+                    $this->logger->info('OpenSans Bold font loaded successfully from opensansb.php');
+                } catch (\Exception $e) {
+                    $this->logger->warning('Failed to load OpenSans Bold font from PHP file: ' . $e->getMessage());
+                    // Don't throw exception, just log and continue
+                }
+            } else {
+                $this->logger->warning('OpenSans Bold PHP font file not found, using default fonts');
+            }
+            
             // Use custom fonts for headers and body text
             $this->logger->info('Using TCPDF with custom fonts (Brandon Black for headers, OpenSans for body text)');
             
@@ -115,30 +181,44 @@ class TcpdfService
             $pdf->useTemplate($templateId);
             
             // Patient information
+            // Patient name with 11pt font
             try {
-                $pdf->SetFont('opensans', '', 10);
+                $pdf->SetFont('opensansb', '', 11);
             } catch (\Exception $e) {
-                $pdf->SetFont('helvetica', '', 10);
+                $pdf->SetFont('helvetica', 'B', 11);
             }
-            $pdf->SetXY(125, 15);
-            $pdf->Cell(70, 5, $this->cleanText($orderData['usr_name']), 0, 1, 'R');
-            $pdf->SetXY(125, 20);
-            $pdf->Cell(70, 5, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
-            $pdf->SetXY(125, 25);
-            $pdf->Cell(70, 5, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
-            $pdf->SetXY(125, 30);
-            $pdf->Cell(70, 5, $this->cleanText('Telefone: ' . $orderData['usr_phone']), 0, 1, 'R');
-            $pdf->SetXY(125, 35);
-            $pdf->Cell(70, 5, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
+            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY);
+            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText($this->capitalizePatientName($orderData['usr_name'])), 0, 1, 'R');
+            
+            // Other patient info with 7.7pt font
+            try {
+                $pdf->SetFont('opensans', '', 7.7);
+            } catch (\Exception $e) {
+                $pdf->SetFont('helvetica', '', 7.7);
+            }
+            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing);
+            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
+            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + $this->patientInfoSpacing);
+            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
+            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 2));
+            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Telefone: ' . $this->formatPhoneNumber($orderData['usr_phone'])), 0, 1, 'R');
+            // Set font to opensansb for Prescrição
+            try {
+                $pdf->SetFont('opensansb', '', 7.7);
+            } catch (\Exception $e) {
+                $pdf->SetFont('helvetica', 'B', 7.7);
+            }
+            $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientNameSpacing + ($this->patientInfoSpacing * 3));
+            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
             
             // Date at bottom right
             try {
-                $pdf->SetFont('opensans', '', 12);
+                $pdf->SetFont('opensans', '', 7.7);
             } catch (\Exception $e) {
-                $pdf->SetFont('helvetica', '', 12);
+                $pdf->SetFont('helvetica', '', 7.7);
             }
-            $pdf->SetXY(125, 250);
-            $pdf->Cell(70, 5, 'Data: ' . date('d/m/Y H:i'), 0, 1, 'R');
+            $pdf->SetXY($this->dateXPosition, $this->dateYPosition);
+            $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->formatDatePortuguese(), 0, 1, 'C');
             
             // Enrich items with precomputed dose text from mapper
             foreach ($items as &$itemRef) {
@@ -153,27 +233,21 @@ class TcpdfService
             $groupedItems = $this->groupItemsByTimeAndType($items);
             
             // Prescriptions - Structured Layout
-            $yPosition = 50;
+            $yPosition = $this->newPageYPosition;
             
             // Process each time group (Dia, Noite, Others)
             foreach ($groupedItems as $timeGroup => $typeGroups) {
-                // First, process pouch items (MY FORMULA sections)
-                if (!empty($typeGroups['pouch'])) {
-                    $this->processPouchSection($pdf, $timeGroup, $typeGroups['pouch'], $yPosition, $templateId, $orderData);
-                }
-                
-                // Then, process Cápsula items as subsections (only for Dia and Noite)
-                if (!empty($typeGroups['capsula']) && ($timeGroup === 'dia' || $timeGroup === 'noite')) {
-                    $this->processCapsulaSubsection($pdf, $typeGroups['capsula'], $yPosition, $templateId, $orderData);
+                // Process pouch and capsula items together (only for Dia and Noite)
+                if (($timeGroup === 'dia' || $timeGroup === 'noite') && (!empty($typeGroups['pouch']) || !empty($typeGroups['capsula']))) {
+                    $pouchItems = $typeGroups['pouch'] ?? [];
+                    $capsulaItems = $typeGroups['capsula'] ?? [];
+                    $this->processPouchSection($pdf, $timeGroup, $pouchItems, $capsulaItems, $yPosition, $templateId, $orderData);
                 }
                 
                 // Process other items with their names as headers
                 if ($timeGroup === 'other') {
-                    foreach ($typeGroups as $type => $items) {
-                        if (empty($items)) continue;
-                        foreach ($items as $item) {
-                            $this->processOtherItem($pdf, $item, $yPosition, $templateId, $orderData);
-                        }
+                    foreach ($typeGroups as $item) {
+                        $this->processOtherItem($pdf, $item, $yPosition, $templateId, $orderData);
                     }
                 }
             }
@@ -216,7 +290,7 @@ class TcpdfService
         $grouped = [
             'dia' => ['pouch' => [], 'capsula' => []],
             'noite' => ['pouch' => [], 'capsula' => []],
-            'other' => ['pouch' => [], 'capsula' => []]
+            'other' => []
         ];
         
         foreach ($items as $item) {
@@ -224,24 +298,56 @@ class TcpdfService
             $isPouch = $this->isPouchItem($item);
             $isCapsula = strpos($itemName, 'cápsula') !== false;
             
-            // Determine time group
+            // Determine time group - use word boundaries to avoid false matches
             $timeGroup = 'other';
-            if (strpos($itemName, 'dia') !== false) {
+            $diaMatch = preg_match('/\bdia\b/', $itemName);
+            $noiteMatch = preg_match('/\bnoite\b/', $itemName);
+            
+            if ($diaMatch) {
                 $timeGroup = 'dia';
-            } elseif (strpos($itemName, 'noite') !== false) {
+            } elseif ($noiteMatch) {
                 $timeGroup = 'noite';
             }
             
-            // Determine type
-            $type = 'capsula';
-            if ($isPouch) {
-                $type = 'pouch';
-            } elseif ($isCapsula) {
-                $type = 'capsula';
-            }
+            // Debug logging for grouping decisions
+            $this->logger->info('Item grouping debug', [
+                'original_name' => $item['itm_name'],
+                'lowercase_name' => $itemName,
+                'dia_match' => $diaMatch,
+                'noite_match' => $noiteMatch,
+                'is_pouch' => $isPouch,
+                'is_capsula' => $isCapsula,
+                'final_time_group' => $timeGroup,
+                'item_id' => $item['itm_id'] ?? 'unknown'
+            ]);
             
-            $grouped[$timeGroup][$type][] = $item;
+            // Add item to appropriate group
+            if ($timeGroup === 'dia' || $timeGroup === 'noite') {
+                // For dia/noite items, separate pouch and capsula
+                if ($isCapsula) {
+                    $grouped[$timeGroup]['capsula'][] = $item;
+                } else {
+                    $grouped[$timeGroup]['pouch'][] = $item;
+                }
+            } else {
+                // For other items, just add directly to the array
+                $grouped[$timeGroup][] = $item;
+            }
         }
+        
+        // Debug logging for final grouped structure
+        $this->logger->info('Final grouped structure', [
+            'dia_pouch_count' => count($grouped['dia']['pouch']),
+            'dia_capsula_count' => count($grouped['dia']['capsula']),
+            'noite_pouch_count' => count($grouped['noite']['pouch']),
+            'noite_capsula_count' => count($grouped['noite']['capsula']),
+            'other_count' => count($grouped['other']),
+            'dia_pouch_items' => array_map(function($item) { return $item['itm_name']; }, $grouped['dia']['pouch']),
+            'dia_capsula_items' => array_map(function($item) { return $item['itm_name']; }, $grouped['dia']['capsula']),
+            'noite_pouch_items' => array_map(function($item) { return $item['itm_name']; }, $grouped['noite']['pouch']),
+            'noite_capsula_items' => array_map(function($item) { return $item['itm_name']; }, $grouped['noite']['capsula']),
+            'other_items' => array_map(function($item) { return $item['itm_name']; }, $grouped['other'])
+        ]);
         
         return $grouped;
     }
@@ -262,16 +368,16 @@ class TcpdfService
     }
 
     /**
-     * Process pouch section (MY FORMULA | DIA/NOITE)
+     * Process pouch section (MY FORMULA | DIA/NOITE) and capsula subsection
      */
-    private function processPouchSection($pdf, string $timeGroup, array $items, int &$yPosition, $templateId, array $orderData): void
+    private function processPouchSection($pdf, string $timeGroup, array $pouchItems, array $capsulaItems, int &$yPosition, $templateId, array $orderData): void
     {
-        if (empty($items)) return;
+        if (empty($pouchItems) && empty($capsulaItems)) return;
         
         // Check if we need a new page
-        if ($yPosition > 150) {
+        if ($yPosition > $this->pageBreakThreshold) {
             $this->addNewPageWithTemplate($pdf, $templateId, $orderData);
-            $yPosition = 50;
+            $yPosition = $this->newPageYPosition;
         }
         
         // Main section header
@@ -279,29 +385,29 @@ class TcpdfService
         
             // Use Brandon Black font for headers
             try {
-                $pdf->SetFont('brandontextblack', '', 14);
+                $pdf->SetFont('brandontextblack', '', 10.6);
             } catch (\Exception $e) {
-                $pdf->SetFont('helvetica', 'B', 14);
+                $pdf->SetFont('helvetica', 'B', 10.6);
             }
         
         // Draw background rectangle with transparency
-        $this->drawHeaderBackground($pdf, 15, $yPosition, 180, 8);
+        $this->drawHeaderBackground($pdf, $this->headerLeftPosition + $this->headerBackgroundXOffset, $yPosition + $this->headerBackgroundYOffset, $this->headerBackgroundWidth, $this->headerBackgroundHeight);
         
         // Draw text on top (without background)
-        $pdf->SetXY(20, $yPosition);
+        $pdf->SetXY($this->headerTextLeftPosition, $yPosition + $this->headerBackgroundYOffset + $this->headerTextYOffset);
         $pdf->Cell(170, 8, $this->cleanText($sectionHeader), 0, 1, 'L', false);
-        $yPosition += 6;
+        $yPosition += $this->headerSpacing;
         
         // Dosage information
         try {
-            $pdf->SetFont('opensans', '', 10);
+            $pdf->SetFont('brandontextblack', '', 8);
         } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetFont('helvetica', 'B', 8);
         }
-        $pdf->SetXY(120, $yPosition - 4);
+        $pdf->SetXY($this->doseInfoXPosition, $yPosition + $this->doseInfoYOffset);
         $doseTextPouch = '';
-        if (!empty($items)) {
-            $first = $items[0];
+        if (!empty($pouchItems)) {
+            $first = $pouchItems[0];
             if (isset($first['dose_text']) && $first['dose_text'] !== '') {
                 $doseTextPouch = $first['dose_text'];
             }
@@ -310,67 +416,81 @@ class TcpdfService
             $doseTextPouch = $this->doseMapper->getDosageText($sectionHeader);
         }
         if ($doseTextPouch !== '') {
-            $pdf->Cell(70, 6, $this->cleanText($doseTextPouch), 0, 1, 'R');
+            $pdf->Cell($this->doseInfoWidth, $this->doseInfoHeight, $this->cleanText($doseTextPouch), 0, 1, 'L');
         }
-        $yPosition += 5;
+        $yPosition += 3;
         
         // Process pouch items
-        foreach ($items as $item) {
-            $this->processItemContent($pdf, $item, $yPosition);
+        foreach ($pouchItems as $item) {
+            // Check if we need a new page before processing each item
+            if ($yPosition > $this->pageBreakThreshold) {
+                $this->addNewPageWithTemplate($pdf, $templateId, $orderData);
+                $yPosition = $this->newPageYPosition;
+                // Don't add header again - this is a continuation
+            }
+            $this->processItemContent($pdf, $item, $yPosition, $templateId, $orderData);
+        }
+        
+        // Process capsula items if they exist
+        if (!empty($capsulaItems)) {
+            // Check if we need a new page before capsula subsection
+            if ($yPosition > $this->pageBreakThreshold) {
+                $this->addNewPageWithTemplate($pdf, $templateId, $orderData);
+                $yPosition = $this->newPageYPosition;
+            }
+            
+            // Reduce spacing between pouch items and capsula subheader
+            $yPosition += 1; // Minimal spacing instead of the default ingredientSpacing (10)
+            
+            // Subsection header (no background)
+            // Use Brandon Black font for headers
+            try {
+                $pdf->SetFont('brandontextblack', '', 8.6);
+            } catch (\Exception $e) {
+                $pdf->SetFont('helvetica', 'B', 8.6);
+            }
+            $pdf->SetXY($this->headerTextLeftPosition, $yPosition + $this->headerTextYOffset);
+            $pdf->Cell(170, 8, $this->cleanText('+ CÁPSULAS'), 0, 1, 'L');
+            
+            // Add line separator under capsula subheader
+            $lineY = $yPosition + $this->headerTextYOffset + 6; // Position line below text
+            $pdf->SetDrawColor(0, 0, 0); // Black line
+            $pdf->Line($this->headerTextLeftPosition + 4, $lineY, $this->headerTextLeftPosition + 4 + 175, $lineY);
+            
+            $yPosition += 2; // Reduced spacing between line separator and first ingredient
+            
+            // Dosage information for capsula
+            try {
+                $pdf->SetFont('brandontextblack', '', 8);
+            } catch (\Exception $e) {
+                $pdf->SetFont('helvetica', 'B', 8);
+            }
+            $pdf->SetXY($this->doseInfoXPosition, $yPosition + $this->doseInfoYOffset + 2);
+            $doseTextCaps = '';
+            if (!empty($capsulaItems)) {
+                $first = $capsulaItems[0];
+                if (isset($first['dose_text']) && $first['dose_text'] !== '') {
+                    $doseTextCaps = $first['dose_text'];
+                }
+            }
+            if ($doseTextCaps === '') {
+                $doseTextCaps = $this->doseMapper->getDosageText('+ CÁPSULAS');
+            }
+            if ($doseTextCaps !== '') {
+                $pdf->Cell($this->doseInfoWidth, $this->doseInfoHeight, $this->cleanText($doseTextCaps), 0, 1, 'L');
+            }
+            $yPosition += 4;
+            
+            // Process Cápsula items
+            foreach ($capsulaItems as $item) {
+                $this->processItemContent($pdf, $item, $yPosition, $templateId, $orderData);
+            }
+            
+            // Add extra spacing after last capsula ingredient before next header
+            $yPosition += 4;
         }
     }
     
-    /**
-     * Process Cápsula subsection (+ CÁPSULAS)
-     */
-    private function processCapsulaSubsection($pdf, array $items, int &$yPosition, $templateId, array $orderData): void
-    {
-        if (empty($items)) return;
-        
-        // Check if we need a new page
-        if ($yPosition > 150) {
-            $this->addNewPageWithTemplate($pdf, $templateId, $orderData);
-            $yPosition = 50;
-        }
-        
-        // Subsection header (no background)
-        // Use Brandon Black font for headers
-        try {
-            $pdf->SetFont('brandontextblack', '', 14);
-        } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', 'B', 14);
-        }
-        $pdf->SetXY(20, $yPosition);
-        $pdf->Cell(170, 8, $this->cleanText('+ CÁPSULAS'), 0, 1, 'L');
-        $yPosition += 6;
-        
-        // Dosage information
-        try {
-            $pdf->SetFont('opensans', '', 10);
-        } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', '', 10);
-        }
-        $pdf->SetXY(120, $yPosition - 4);
-        $doseTextCaps = '';
-        if (!empty($items)) {
-            $first = $items[0];
-            if (isset($first['dose_text']) && $first['dose_text'] !== '') {
-                $doseTextCaps = $first['dose_text'];
-            }
-        }
-        if ($doseTextCaps === '') {
-            $doseTextCaps = $this->doseMapper->getDosageText('+ CÁPSULAS');
-        }
-        if ($doseTextCaps !== '') {
-            $pdf->Cell(70, 6, $this->cleanText($doseTextCaps), 0, 1, 'R');
-        }
-        $yPosition += 5;
-        
-        // Process Cápsula items
-        foreach ($items as $item) {
-            $this->processItemContent($pdf, $item, $yPosition);
-        }
-    }
     
     /**
      * Process other items with item name as header
@@ -378,74 +498,89 @@ class TcpdfService
     private function processOtherItem($pdf, array $item, int &$yPosition, $templateId, array $orderData): void
     {
         // Check if we need a new page
-        if ($yPosition > 150) {
+        if ($yPosition > $this->pageBreakThreshold) {
             $this->addNewPageWithTemplate($pdf, $templateId, $orderData);
-            $yPosition = 50;
+            $yPosition = $this->newPageYPosition;
         }
         
         // Item name as header
         // Use Brandon Black font for headers
         try {
-            $pdf->SetFont('brandontextblack', '', 14);
+            $pdf->SetFont('brandontextblack', '', 10.6);
         } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', 'B', 14);
+            $pdf->SetFont('helvetica', 'B', 10.6);
         }
         // Draw background rectangle with transparency
-        $this->drawHeaderBackground($pdf, 20, $yPosition, 170, 8);
+        $this->drawHeaderBackground($pdf, $this->headerLeftPosition + $this->headerBackgroundXOffset, $yPosition + $this->headerBackgroundYOffset, $this->headerBackgroundWidth, $this->headerBackgroundHeight);
         
         // Draw text on top (without background)
-        $pdf->SetXY(20, $yPosition);
+        $pdf->SetXY($this->headerTextLeftPosition, $yPosition + $this->headerBackgroundYOffset + $this->headerTextYOffset);
         $pdf->Cell(170, 8, $this->cleanText($this->cleanItemName($item['itm_name'])), 0, 1, 'L', false);
-        $yPosition += 6;
+        $yPosition += $this->headerSpacing;
         
         // Dosage information
         try {
-            $pdf->SetFont('opensans', '', 10);
+            $pdf->SetFont('brandontextblack', '', 8);
         } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetFont('helvetica', 'B', 8);
         }
-        $pdf->SetXY(120, $yPosition - 4);
+        $pdf->SetXY($this->doseInfoXPosition, $yPosition + $this->doseInfoYOffset);
         $doseTextOther = isset($item['dose_text']) ? $item['dose_text'] : $this->doseMapper->getDosageText($item['itm_name']);
         if ($doseTextOther !== '') {
-            $pdf->Cell(70, 6, $this->cleanText($doseTextOther), 0, 1, 'R');
+            $pdf->Cell($this->doseInfoWidth, $this->doseInfoHeight, $this->cleanText($doseTextOther), 0, 1, 'L');
         }
         $yPosition += 5;
         
         // Process item content
-        $this->processItemContent($pdf, $item, $yPosition);
+        $this->processItemContent($pdf, $item, $yPosition, $templateId, $orderData);
+        
+        // Add extra spacing after last other ingredient before next header (same as capsula)
+        $yPosition += 4;
     }
     
     /**
      * Process item content (composition, etc.)
      */
-    private function processItemContent($pdf, array $item, int &$yPosition): void
+    private function processItemContent($pdf, array $item, int &$yPosition, $templateId = null, $orderData = null): void
     {
         // Parse composition JSON and create ingredient list with dotted lines
         $composition = json_decode($item['composition'], true);
         if ($composition && is_array($composition)) {
             foreach ($composition as $ingredient) {
+                // Check if we need a new page before each ingredient
+                if ($yPosition > $this->pageBreakThreshold) {
+                    if ($templateId !== null && $orderData !== null) {
+                        $this->addNewPageWithTemplate($pdf, $templateId, $orderData);
+                    } else {
+                        $this->addSimpleNewPage($pdf);
+                    }
+                    $yPosition = $this->newPageYPosition;
+                }
+                
                 $ingredientName = $this->cleanText($ingredient['ingredient']);
                 $dosage = $this->cleanText($ingredient['dosage']);
                 
                 // Create dotted line between ingredient name and dosage
                 try {
-                    $pdf->SetFont('opensans', '', 10);
+                    $pdf->SetFont('opensans', '', 7.7);
                 } catch (\Exception $e) {
-                    $pdf->SetFont('helvetica', '', 10);
+                    $pdf->SetFont('helvetica', '', 7.7);
                 }
-                $pdf->SetXY(20, $yPosition);
+                $pdf->SetXY($this->headerLeftPosition, $yPosition);
                 $pdf->Cell(0, 4, $ingredientName, 0, 0, 'L');
                 
-                // Calculate position for dotted line
+                // Calculate positions for dotted line and dosage
                 $nameWidth = $pdf->GetStringWidth($ingredientName);
-                $lineStart = 20 + $nameWidth + 2;
-                $lineEnd = 170;
-                $lineY = $yPosition + 2;
+                $dosageWidth = $pdf->GetStringWidth($dosage);
+                $lineStart = $this->headerLeftPosition + $nameWidth + 2;
+                $dosageStart = max(130, $nameWidth + 10) - $dosageWidth - 2; // Position dosage 2 units from right edge, but use nameWidth + 2 if larger than 120
+                $lineEnd = $dosageStart - 2; // End line 2 units before dosage
+                $lineY = $yPosition + $this->ingredientLineYOffset;
                 
-                // Draw dotted line manually
+                // Draw dotted line that fills exactly the space between name and dosage
                 $pdf->SetDrawColor(150, 150, 150);
-                $dashLength = 2;
-                $gapLength = 2;
+                $dashLength = $this->dottedLineDashLength;
+                $gapLength = $this->dottedLineGapLength;
                 $currentX = $lineStart;
                 
                 while ($currentX < $lineEnd) {
@@ -454,14 +589,14 @@ class TcpdfService
                 }
                 
                 // Add dosage at the end
-                $pdf->SetXY($lineEnd - 5, $yPosition);
-                $pdf->Cell(0, 4, $dosage, 0, 1, 'R');
+                $pdf->SetXY($dosageStart, $yPosition);
+                $pdf->Cell(0, 4, $dosage, 0, 1, 'L');
                 
-                $yPosition += 6;
+                $yPosition += $this->headerSpacing;
             }
         }
         
-        $yPosition += 10;
+        $yPosition += $this->ingredientSpacing;
     }
 
     private function cleanText(string $text): string
@@ -476,6 +611,54 @@ class TcpdfService
         ], $text);
         
         return $text;
+    }
+
+    /**
+     * Format phone number to Brazilian format (XX) X XXXX-XXXX
+     */
+    private function formatPhoneNumber(string $phone): string
+    {
+        // Remove all non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+        
+        // If phone has 11 digits (with area code and 9th digit)
+        if (strlen($phone) === 11) {
+            return '(' . substr($phone, 0, 2) . ') ' . substr($phone, 2, 1) . ' ' . substr($phone, 3, 4) . '-' . substr($phone, 7, 4);
+        }
+        
+        // If phone has 10 digits (with area code but no 9th digit)
+        if (strlen($phone) === 10) {
+            return '(' . substr($phone, 0, 2) . ') ' . substr($phone, 2, 4) . '-' . substr($phone, 6, 4);
+        }
+        
+        // If phone has 9 digits (without area code)
+        if (strlen($phone) === 9) {
+            return substr($phone, 0, 1) . ' ' . substr($phone, 1, 4) . '-' . substr($phone, 5, 4);
+        }
+        
+        // If phone has 8 digits (without area code and 9th digit)
+        if (strlen($phone) === 8) {
+            return substr($phone, 0, 4) . '-' . substr($phone, 4, 4);
+        }
+        
+        // Return original if doesn't match expected patterns
+        return $phone;
+    }
+
+    /**
+     * Capitalize patient name properly
+     */
+    private function capitalizePatientName(string $name): string
+    {
+        // Convert to lowercase first, then capitalize each word
+        $name = strtolower($name);
+        
+        // Split by spaces and capitalize each word
+        $words = explode(' ', $name);
+        $capitalizedWords = array_map('ucfirst', $words);
+        
+        // Join back with spaces
+        return implode(' ', $capitalizedWords);
     }
 
     /**
@@ -519,8 +702,8 @@ class TcpdfService
         // Set the fill color to #3F1F20 (RGB: 63, 31, 32)
         $pdf->SetFillColor(63, 31, 32);
         
-        // Set alpha transparency to 10% (0.1)
-        $pdf->SetAlpha(0.1);
+        // Set alpha transparency to 7% (0.07)
+        $pdf->SetAlpha(0.2);
         
         // Draw the background rectangle with rounded corners
         // Parameters: x, y, width, height, radius, corners (all rounded), style (fill only)
@@ -570,29 +753,80 @@ class TcpdfService
         $this->setStandardTextColor($pdf);
         
         // Add patient data
+        // Patient name with 11pt font
         try {
-            $pdf->SetFont('opensans', '', 10);
+            $pdf->SetFont('opensansb', '', 11);
         } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetFont('helvetica', 'B', 11);
         }
-        $pdf->SetXY(125, 15);
-        $pdf->Cell(70, 5, $this->cleanText($orderData['usr_name']), 0, 1, 'R');
-        $pdf->SetXY(125, 20);
-        $pdf->Cell(70, 5, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
-        $pdf->SetXY(125, 25);
-        $pdf->Cell(70, 5, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
-        $pdf->SetXY(125, 30);
-        $pdf->Cell(70, 5, $this->cleanText('Telefone: ' . $orderData['usr_phone']), 0, 1, 'R');
-        $pdf->SetXY(125, 35);
-        $pdf->Cell(70, 5, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY);
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText($this->capitalizePatientName($orderData['usr_name'])), 0, 1, 'R');
+        
+        // Other patient info with 7.7pt font
+        try {
+            $pdf->SetFont('opensans', '', 7.7);
+        } catch (\Exception $e) {
+            $pdf->SetFont('helvetica', '', 7.7);
+        }
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + $this->patientInfoSpacing);
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Documento: ' . $orderData['usr_cpf']), 0, 1, 'R');
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 2));
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Sexo: [Não informado]'), 0, 1, 'R');
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 3));
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Telefone: ' . $this->formatPhoneNumber($orderData['usr_phone'])), 0, 1, 'R');
+        // Set font to opensansb for Prescrição
+        try {
+            $pdf->SetFont('opensansb', '', 7.7);
+        } catch (\Exception $e) {
+            $pdf->SetFont('helvetica', 'B', 7.7);
+        }
+        $pdf->SetXY($this->patientInfoXPosition, $this->patientInfoStartY + ($this->patientInfoSpacing * 4));
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->cleanText('Prescrição: ' . $orderData['ord_id']), 0, 1, 'R');
         
         // Date at bottom right
+        try {
+            $pdf->SetFont('opensans', '', 7.7);
+        } catch (\Exception $e) {
+            $pdf->SetFont('helvetica', '', 7.7);
+        }
+        $pdf->SetXY($this->dateXPosition, $this->dateYPosition);
+        $pdf->Cell($this->patientInfoWidth, $this->patientInfoHeight, $this->formatDatePortuguese(), 0, 1, 'C');
+    }
+
+    /**
+     * Add a simple new page without template (for ingredient page breaks)
+     */
+    private function addSimpleNewPage($pdf): void
+    {
+        $pdf->AddPage();
+        
+        // Set standard text color
+        $this->setStandardTextColor($pdf);
+        
+        // Set default font
         try {
             $pdf->SetFont('opensans', '', 12);
         } catch (\Exception $e) {
             $pdf->SetFont('helvetica', '', 12);
         }
-        $pdf->SetXY(125, 250);
-        $pdf->Cell(70, 5, 'Data: ' . date('d/m/Y H:i'), 0, 1, 'R');
+    }
+
+    /**
+     * Format current date in Portuguese format
+     * @return string
+     */
+    private function formatDatePortuguese(): string
+    {
+        $months = [
+            1 => 'janeiro', 2 => 'fevereiro', 3 => 'março', 4 => 'abril',
+            5 => 'maio', 6 => 'junho', 7 => 'julho', 8 => 'agosto',
+            9 => 'setembro', 10 => 'outubro', 11 => 'novembro', 12 => 'dezembro'
+        ];
+        
+        $day = date('j'); // Day without leading zeros
+        $month = $months[(int)date('n')]; // Month name in Portuguese
+        $year = date('Y');
+        
+        return $day . ' de ' . $month . ' de ' . $year;
     }
 }

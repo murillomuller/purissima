@@ -21,10 +21,14 @@ class DoseMapper
         // Vital Man Day Avançado
         'vital man day avançado - pouch' => '1 DOSE = 1 SCOOP',
         'vital man day avançado - caps' => '1 DOSE = 2 CÁPSULAS',
+        'vital man day avançada - pouch' => '1 DOSE = 1 SCOOP',
+        'vital man day avançada - caps' => '1 DOSE = 2 CÁPSULAS',
         
         // Vital Man Night Avançado
         'vital man night avançado - pouch' => '1 DOSE = 1 SCOOP',
         'vital man night avançado - caps' => '1 DOSE = 2 CÁPSULAS',
+        'vital man night avançada - pouch' => '1 DOSE = 1 SCOOP',
+        'vital man night avançada - caps' => '1 DOSE = 2 CÁPSULAS',
         
         // Vital Man Day Premium
         'vital man day premium - pouch' => '1 DOSE = 1 SCOOP',
@@ -46,10 +50,14 @@ class DoseMapper
         // Vital Woman Day Avançada
         'vital woman day avançada - pouch' => '1 DOSE = 1 SCOOP',
         'vital woman day avançada - caps' => '1 DOSE = 2 CÁPSULAS',
+        'vital woman day avançado - pouch' => '1 DOSE = 1 SCOOP',
+        'vital woman day avançado - caps' => '1 DOSE = 2 CÁPSULAS',
         
         // Vital Woman Night Avançada
         'vital woman night avançada - pouch' => '1 DOSE = 1 SCOOP',
         'vital woman night avançada - caps' => '1 DOSE = 2 CÁPSULAS',
+        'vital woman night avançado - pouch' => '1 DOSE = 1 SCOOP',
+        'vital woman night avançado - caps' => '1 DOSE = 2 CÁPSULAS',
         
         // Vital Woman Day Premium
         'vital woman day premium - pouch' => '1 DOSE = 1 SCOOP',
@@ -71,10 +79,14 @@ class DoseMapper
         // Longevity Man Day Avançado
         'longevity man day avançado - pouch' => '1 DOSE = 1 SCOOP',
         'longevity man day avançado - caps' => '1 DOSE = 3 CÁPSULAS',
+        'longevity man day avançada - pouch' => '1 DOSE = 1 SCOOP',
+        'longevity man day avançada - caps' => '1 DOSE = 3 CÁPSULAS',
         
         // Longevity Man Night Avançado
         'longevity man night avançado - pouch' => '1 DOSE = 1 SCOOP',
         'longevity man night avançado - caps' => '1 DOSE = 3 CÁPSULAS',
+        'longevity man night avançada - pouch' => '1 DOSE = 1 SCOOP',
+        'longevity man night avançada - caps' => '1 DOSE = 3 CÁPSULAS',
         
         // Longevity Man Day Premium
         'longevity man day premium - pouch' => '1 DOSE = 1 SCOOP',
@@ -96,10 +108,14 @@ class DoseMapper
         // Longevity Woman Day Avançada
         'longevity woman day avançada - pouch' => '1 DOSE = 1 SCOOP',
         'longevity woman day avançada - caps' => '1 DOSE = 3 CÁPSULAS',
+        'longevity woman day avançado - pouch' => '1 DOSE = 1 SCOOP',
+        'longevity woman day avançado - caps' => '1 DOSE = 3 CÁPSULAS',
         
         // Longevity Woman Night Avançada
         'longevity woman night avançada - pouch' => '1 DOSE = 1 SCOOP',
         'longevity woman night avançada - caps' => '1 DOSE = 3 CÁPSULAS',
+        'longevity woman night avançado - pouch' => '1 DOSE = 1 SCOOP',
+        'longevity woman night avançado - caps' => '1 DOSE = 3 CÁPSULAS',
         
         // Longevity Woman Day Premium
         'longevity woman day premium - pouch' => '1 DOSE = 1 SCOOP',
@@ -286,10 +302,21 @@ class DoseMapper
         
         // Convert Portuguese terms
         $normalized = str_replace([
-            'dia', 'noite', 'essencial', 'avançado', 'avançada', 'premium'
+            'dia', 'noite', 'essencial', 'premium'
         ], [
-            'day', 'night', 'essencial', 'avançado', 'avançada', 'premium'
+            'day', 'night', 'essencial', 'premium'
         ], $normalized);
+        
+        // Handle gender agreement: convert avançada to avançado for Men products
+        if (strpos($normalized, 'man') !== false && strpos($normalized, 'avançada') !== false) {
+            $normalized = str_replace('avançada', 'avançado', $normalized);
+            error_log('[DoseMapper] Fixed gender agreement: converted "avançada" to "avançado" for Men product');
+        }
+        // Handle gender agreement: convert avançado to avançada for Woman products
+        elseif (strpos($normalized, 'woman') !== false && strpos($normalized, 'avançado') !== false) {
+            $normalized = str_replace('avançado', 'avançada', $normalized);
+            error_log('[DoseMapper] Fixed gender agreement: converted "avançado" to "avançada" for Woman product');
+        }
         
         // Add pouch/caps suffix based on original name
         if (strpos($name, 'Pouch') !== false) {

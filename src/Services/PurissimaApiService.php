@@ -86,7 +86,12 @@ class PurissimaApiService
 
             // Ensure proper UTF-8 encoding of the results
             $results = $data['results'] ?? [];
-            return $this->ensureUtf8Encoding($results);
+            $utf8Results = $this->ensureUtf8Encoding($results);
+            
+            // Deduplicate items within each order
+            $deduplicatedResults = $this->deduplicateItems($utf8Results);
+            
+            return $deduplicatedResults;
 
         } catch (RequestException $e) {
             $this->logger->error('Request exception occurred', [
@@ -106,6 +111,48 @@ class PurissimaApiService
     {
         $orders = $this->getOrders();
         return $orders[$orderId] ?? null;
+    }
+
+    /**
+     * Deduplicate items within each order based on itm_id and var_id
+     * This removes exact duplicates while preserving the first occurrence
+     */
+    private function deduplicateItems(array $orders): array
+    {
+        $deduplicatedOrders = [];
+        
+        foreach ($orders as $orderId => $orderData) {
+            $deduplicatedOrder = $orderData;
+            
+            // Check if this order has items to deduplicate
+            if (isset($orderData['items']) && is_array($orderData['items'])) {
+                $seenItems = [];
+                $deduplicatedItems = [];
+                
+                foreach ($orderData['items'] as $item) {
+                    // Create a unique key based on itm_id and var_id
+                    $itemKey = ($item['itm_id'] ?? '') . '_' . ($item['var_id'] ?? '');
+                    
+                    if (!isset($seenItems[$itemKey])) {
+                        $seenItems[$itemKey] = true;
+                        $deduplicatedItems[] = $item;
+                    } else {
+                        $this->logger->info('Duplicate item removed', [
+                            'order_id' => $orderId,
+                            'itm_id' => $item['itm_id'] ?? 'unknown',
+                            'var_id' => $item['var_id'] ?? 'unknown',
+                            'item_name' => $item['itm_name'] ?? 'unknown'
+                        ]);
+                    }
+                }
+                
+                $deduplicatedOrder['items'] = $deduplicatedItems;
+            }
+            
+            $deduplicatedOrders[$orderId] = $deduplicatedOrder;
+        }
+        
+        return $deduplicatedOrders;
     }
 
     /**
