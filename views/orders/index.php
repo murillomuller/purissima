@@ -84,13 +84,25 @@ ob_start();
                     </div>
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
                         <div class="relative flex-1 sm:flex-none">
-                            <input id="searchInput" type="text" placeholder="Buscar pedidos..." class="w-full px-3 py-2 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80" />
-                            <div class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+                            <input id="searchInput" type="text" placeholder="Buscar pedidos..." class="w-full px-3 py-2 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80 transition-opacity duration-200" />
+                            <div id="searchIcon" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z"/></svg>
+                            </div>
+                            <div id="searchSpinner" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hidden">
+                                <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             </div>
                         </div>
                         <div class="flex items-center justify-between sm:justify-end space-x-3">
                             <div class="text-white/80 text-sm" id="selectedCount">0 selecionado(s)</div>
+                            <div class="flex items-center space-x-2">
+                                <label class="text-white/80 text-xs sm:text-sm">Por página:</label>
+                                <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="bg-white/20 text-white text-xs sm:text-sm rounded px-2 py-1 border border-white/30 focus:outline-none focus:ring-1 focus:ring-white/50">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
                             <button id="bulkGenerateBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
                                 <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
@@ -152,6 +164,44 @@ ob_start();
                     <tbody id="ordersTableBody" class="bg-white divide-y divide-gray-200"></tbody>
                 </table>
             </div>
+            
+            <!-- Pagination Controls -->
+            <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div class="flex-1 flex justify-between sm:hidden">
+                    <button id="prevPage" onclick="prevPage()" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Anterior
+                    </button>
+                    <button id="nextPage" onclick="nextPage()" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        Próximo
+                    </button>
+                </div>
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p id="paginationInfo" class="text-sm text-gray-700">
+                            Mostrando 1-20 de 100 pedidos
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            <button id="prevPage" onclick="prevPage()" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="sr-only">Anterior</span>
+                                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <div id="pageNumbers" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                <!-- Page numbers will be inserted here -->
+                            </div>
+                            <button id="nextPage" onclick="nextPage()" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="sr-only">Próximo</span>
+                                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -197,9 +247,196 @@ ob_start();
 let ordersData = [];
 let currentSort = { column: 'ord_id', direction: 'desc' };
 let searchQuery = '';
+let isSearching = false;
+let searchTimeout = null;
+
+// Search performance optimization
+let searchCache = new Map();
+let searchIndex = new Map(); // Pre-built search index
+let lastSearchTime = 0;
+let searchDebounceDelay = 100; // Reduced for better responsiveness
+
+// Pagination system
+let currentPage = 1;
+let itemsPerPage = 20; // Configurable page size
+let totalPages = 1;
+let totalItems = 0;
+let paginatedData = [];
+
+// Pre-cache DOM elements for better performance
+let cachedElements = {
+    searchInput: null,
+    searchIcon: null,
+    searchSpinner: null,
+    loadingState: null,
+    emptyState: null,
+    ordersTable: null,
+    ordersCount: null,
+    ordersTableBody: null
+};
+
+function initializeCachedElements() {
+    cachedElements.searchInput = document.getElementById('searchInput');
+    cachedElements.searchIcon = document.getElementById('searchIcon');
+    cachedElements.searchSpinner = document.getElementById('searchSpinner');
+    cachedElements.loadingState = document.getElementById('loadingState');
+    cachedElements.emptyState = document.getElementById('emptyState');
+    cachedElements.ordersTable = document.getElementById('ordersTable');
+    cachedElements.ordersCount = document.getElementById('ordersCount');
+    cachedElements.ordersTableBody = document.getElementById('ordersTableBody');
+}
+
+function buildSearchIndex(orders) {
+    searchIndex.clear();
+    searchCache.clear();
+    
+    orders.forEach((entry, index) => {
+        const o = entry.order || {};
+        const items = entry.items || [];
+        
+        // Create searchable text for each order
+        const searchableText = [
+            o.ord_id,
+            o.usr_name,
+            o.usr_email,
+            o.usr_cpf,
+            o.usr_phone,
+            o.chg_status,
+            o.created_at,
+            ...items.map(item => [
+                item.itm_name,
+                item.composition,
+                item.req
+            ].filter(Boolean).join(' '))
+        ].filter(Boolean).join(' ').toLowerCase();
+        
+        // Index by words for faster searching
+        const words = searchableText.split(/\s+/).filter(word => word.length > 1);
+        words.forEach(word => {
+            if (!searchIndex.has(word)) {
+                searchIndex.set(word, new Set());
+            }
+            searchIndex.get(word).add(index);
+        });
+        
+        // Also index the full text for partial matches
+        searchIndex.set(`full_${index}`, searchableText);
+    });
+    
+    // Limit cache size to prevent memory issues
+    if (searchCache.size > 100) {
+        const entries = Array.from(searchCache.entries());
+        searchCache.clear();
+        // Keep only the most recent 50 entries
+        entries.slice(-50).forEach(([key, value]) => {
+            searchCache.set(key, value);
+        });
+    }
+}
 
 function refreshOrders() {
     loadOrders();
+}
+
+function paginateData(data) {
+    totalItems = data.length;
+    totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    // Ensure current page is valid
+    if (currentPage > totalPages) {
+        currentPage = Math.max(1, totalPages);
+    }
+    
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    paginatedData = data.slice(startIndex, endIndex);
+    return paginatedData;
+}
+
+function updatePaginationInfo() {
+    const startItem = (currentPage - 1) * itemsPerPage + 1;
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+    
+    const paginationInfo = document.getElementById('paginationInfo');
+    if (paginationInfo) {
+        if (totalItems === 0) {
+            paginationInfo.textContent = 'Nenhum item encontrado';
+        } else {
+            paginationInfo.textContent = `Mostrando ${startItem}-${endItem} de ${totalItems} pedidos`;
+        }
+    }
+}
+
+function updatePaginationControls() {
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const pageNumbers = document.getElementById('pageNumbers');
+    
+    // Update prev/next buttons
+    if (prevBtn) {
+        prevBtn.disabled = currentPage <= 1;
+        prevBtn.classList.toggle('opacity-50', currentPage <= 1);
+        prevBtn.classList.toggle('cursor-not-allowed', currentPage <= 1);
+    }
+    
+    if (nextBtn) {
+        nextBtn.disabled = currentPage >= totalPages;
+        nextBtn.classList.toggle('opacity-50', currentPage >= totalPages);
+        nextBtn.classList.toggle('cursor-not-allowed', currentPage >= totalPages);
+    }
+    
+    // Update page numbers
+    if (pageNumbers) {
+        pageNumbers.innerHTML = '';
+        
+        const maxVisiblePages = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // Adjust start page if we're near the end
+        if (endPage - startPage + 1 < maxVisiblePages) {
+            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        // Add page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            const pageBtn = document.createElement('button');
+            pageBtn.textContent = i;
+            pageBtn.className = `px-3 py-1 text-sm rounded transition-colors duration-200 ${
+                i === currentPage 
+                    ? 'bg-primary text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`;
+            pageBtn.onclick = () => goToPage(i);
+            pageNumbers.appendChild(pageBtn);
+        }
+    }
+}
+
+function goToPage(page) {
+    if (page < 1 || page > totalPages || page === currentPage) return;
+    
+    currentPage = page;
+    displayOrders(ordersData);
+}
+
+function nextPage() {
+    if (currentPage < totalPages) {
+        goToPage(currentPage + 1);
+    }
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        goToPage(currentPage - 1);
+    }
+}
+
+function changePageSize(newSize) {
+    itemsPerPage = parseInt(newSize);
+    currentPage = 1; // Reset to first page
+    displayOrders(ordersData);
 }
 
 function loadOrders() {
@@ -214,6 +451,9 @@ function loadOrders() {
             if (data.success) {
                 ordersData = data.orders;
                 
+                // Build search index for fast searching
+                buildSearchIndex(ordersData);
+                
                 displayOrders(ordersData);
             } else showError(data.error || 'Erro ao carregar pedidos');
         })
@@ -221,24 +461,45 @@ function loadOrders() {
 }
 
 function displayOrders(orders) {
-    document.getElementById('loadingState').classList.add('hidden');
+    // Use cached DOM elements for better performance
+    const loadingState = cachedElements.loadingState;
+    const emptyState = cachedElements.emptyState;
+    const ordersTable = cachedElements.ordersTable;
+    const ordersCount = cachedElements.ordersCount;
+    const tbody = cachedElements.ordersTableBody;
+    
+    loadingState.classList.add('hidden');
+    
     if (!orders || orders.length === 0) {
-        document.getElementById('emptyState').classList.remove('hidden');
-        document.getElementById('ordersTable').classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        ordersTable.classList.add('hidden');
+        // Reset pagination
+        currentPage = 1;
+        totalPages = 1;
+        totalItems = 0;
+        updatePaginationInfo();
+        updatePaginationControls();
         return;
     }
 
     const filtered = filterOrders(orders, searchQuery);
-    document.getElementById('ordersCount').textContent = `${filtered.length} pedido(s) encontrado(s)`;
+    ordersCount.textContent = `${filtered.length} pedido(s) encontrado(s)`;
     
     // Show/hide table based on results
     if (filtered.length === 0) {
-        document.getElementById('emptyState').classList.remove('hidden');
-        document.getElementById('ordersTable').classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        // Keep table headers visible, just clear the body
+        tbody.innerHTML = '';
+        // Reset pagination
+        currentPage = 1;
+        totalPages = 1;
+        totalItems = 0;
+        updatePaginationInfo();
+        updatePaginationControls();
         return;
     } else {
-        document.getElementById('emptyState').classList.add('hidden');
-        document.getElementById('ordersTable').classList.remove('hidden');
+        emptyState.classList.add('hidden');
+        ordersTable.classList.remove('hidden');
     }
     
     let sortedOrders = filtered;
@@ -246,12 +507,17 @@ function displayOrders(orders) {
         sortedOrders = sortOrders(filtered, currentSort.column, currentSort.direction);
     }
 
+    // Apply pagination
+    const paginatedOrders = paginateData(sortedOrders);
+    
     updateSortIndicators(currentSort.column, currentSort.direction);
+    updatePaginationInfo();
+    updatePaginationControls();
 
-    const tbody = document.getElementById('ordersTableBody');
-    tbody.innerHTML = '';
-
-    sortedOrders.forEach(o => {
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+    
+    paginatedOrders.forEach(o => {
         const order = o.order;
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition-colors duration-200';
@@ -321,9 +587,13 @@ function displayOrders(orders) {
                     </button>
                 </div>
             </td>`;
-        tbody.appendChild(tr);
+        fragment.appendChild(tr);
     });
-    document.getElementById('ordersTable').classList.remove('hidden');
+    
+    // Clear and append all at once for better performance
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+    
     attachSelectionHandlers();
 }
 
@@ -356,28 +626,73 @@ function filterOrders(orders, query) {
     const q = query.toString().toLowerCase().trim();
     if (q.length === 0) return orders;
     
-    return orders.filter(entry => {
-        const o = entry.order || {};
-        const items = entry.items || [];
-        
-        // Check order fields first (most common searches)
-        if (o.ord_id && String(o.ord_id).toLowerCase().includes(q)) return true;
-        if (o.usr_name && String(o.usr_name).toLowerCase().includes(q)) return true;
-        if (o.usr_email && String(o.usr_email).toLowerCase().includes(q)) return true;
-        if (o.usr_cpf && String(o.usr_cpf).toLowerCase().includes(q)) return true;
-        if (o.usr_phone && String(o.usr_phone).toLowerCase().includes(q)) return true;
-        if (o.chg_status && String(o.chg_status).toLowerCase().includes(q)) return true;
-        if (o.created_at && String(o.created_at).toLowerCase().includes(q)) return true;
-        
-        // Check item fields only if order fields don't match
-        for (const item of items) {
-            if (item.itm_name && String(item.itm_name).toLowerCase().includes(q)) return true;
-            if (item.composition && String(item.composition).toLowerCase().includes(q)) return true;
-            if (item.req && String(item.req).toLowerCase().includes(q)) return true;
+    // Check cache first
+    if (searchCache.has(q)) {
+        const cachedIndices = searchCache.get(q);
+        return cachedIndices.map(index => orders[index]);
+    }
+    
+    const startTime = performance.now();
+    const matchingIndices = new Set();
+    
+    // Split query into words for more flexible searching
+    const queryWords = q.split(/\s+/).filter(word => word.length > 0);
+    
+    if (queryWords.length === 1) {
+        // Single word search - use index for exact matches
+        const word = queryWords[0];
+        if (searchIndex.has(word)) {
+            searchIndex.get(word).forEach(index => matchingIndices.add(index));
         }
         
-        return false;
-    });
+        // Also search for partial matches in full text
+        for (let i = 0; i < orders.length; i++) {
+            const fullText = searchIndex.get(`full_${i}`);
+            if (fullText && fullText.includes(word)) {
+                matchingIndices.add(i);
+            }
+        }
+    } else {
+        // Multi-word search - find orders that contain all words
+        const wordSets = queryWords.map(word => {
+            const set = new Set();
+            if (searchIndex.has(word)) {
+                searchIndex.get(word).forEach(index => set.add(index));
+            }
+            // Also check partial matches
+            for (let i = 0; i < orders.length; i++) {
+                const fullText = searchIndex.get(`full_${i}`);
+                if (fullText && fullText.includes(word)) {
+                    set.add(i);
+                }
+            }
+            return set;
+        });
+        
+        // Find intersection of all word sets
+        if (wordSets.length > 0) {
+            const firstSet = wordSets[0];
+            firstSet.forEach(index => {
+                if (wordSets.every(set => set.has(index))) {
+                    matchingIndices.add(index);
+                }
+            });
+        }
+    }
+    
+    // Convert indices back to orders
+    const results = Array.from(matchingIndices).map(index => orders[index]);
+    
+    // Cache the results
+    searchCache.set(q, results);
+    
+    // Log performance (remove in production)
+    const endTime = performance.now();
+    if (endTime - startTime > 5) {
+        console.log(`Search for "${q}" took ${(endTime - startTime).toFixed(2)}ms`);
+    }
+    
+    return results;
 }
 
 function debounce(fn, delay) {
@@ -387,6 +702,66 @@ function debounce(fn, delay) {
         clearTimeout(t);
         t = setTimeout(() => fn.apply(null, args), delay);
     }
+}
+
+function performSearch(query) {
+    if (isSearching) return;
+    
+    const currentTime = performance.now();
+    lastSearchTime = currentTime;
+    
+    isSearching = true;
+    searchQuery = query;
+    
+    // Reset to first page when searching
+    currentPage = 1;
+    
+    // Show search spinner only for longer searches
+    const searchIcon = cachedElements.searchIcon;
+    const searchSpinner = cachedElements.searchSpinner;
+    let showSpinner = false;
+    
+    // Use immediate execution for cached results or very short queries
+    if (searchCache.has(query) || query.length <= 2) {
+        try {
+            displayOrders(ordersData);
+        } finally {
+            isSearching = false;
+        }
+        return;
+    }
+    
+    // Show spinner for longer searches
+    if (searchIcon && searchSpinner) {
+        searchIcon.classList.add('hidden');
+        searchSpinner.classList.remove('hidden');
+        showSpinner = true;
+    }
+    
+    // Use requestAnimationFrame for smoother updates
+    requestAnimationFrame(() => {
+        // Check if this is still the latest search
+        if (currentTime !== lastSearchTime) {
+            isSearching = false;
+            if (showSpinner && searchIcon && searchSpinner) {
+                searchSpinner.classList.add('hidden');
+                searchIcon.classList.remove('hidden');
+            }
+            return;
+        }
+        
+        try {
+            displayOrders(ordersData);
+        } finally {
+            isSearching = false;
+            
+            // Hide search spinner
+            if (showSpinner && searchIcon && searchSpinner) {
+                searchSpinner.classList.add('hidden');
+                searchIcon.classList.remove('hidden');
+            }
+        }
+    });
 }
 
 function updateSortIndicators(column, direction) {
@@ -769,15 +1144,43 @@ function generateSticker(id) {
 
 document.addEventListener('DOMContentLoaded', loadOrders);
 
-// Wire search input with debounce
+// Initialize everything on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-    const input = document.getElementById('searchInput');
+    // Initialize cached elements first
+    initializeCachedElements();
+    
+    // Set up search input with optimized debounce
+    const input = cachedElements.searchInput;
     if (!input) return;
+    
     const handler = debounce((e) => {
-        searchQuery = e.target.value || '';
-        displayOrders(ordersData);
-    }, 100);
-    input.addEventListener('input', handler);
+        const query = e.target.value || '';
+        performSearch(query);
+    }, searchDebounceDelay);
+    
+    // Add immediate feedback for better UX
+    input.addEventListener('input', (e) => {
+        // Clear any existing timeout
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // Show immediate visual feedback
+        const query = e.target.value || '';
+        if (query.length > 0) {
+            input.style.opacity = '0.7';
+        } else {
+            input.style.opacity = '1';
+        }
+        
+        // Debounced search
+        handler(e);
+    });
+    
+    // Restore opacity when search completes
+    input.addEventListener('blur', () => {
+        input.style.opacity = '1';
+    });
 });
 </script>
 
