@@ -825,7 +825,11 @@ class TcpdfService
         // Fab/Val information
         try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
         $pdf->SetXY($x + 1, $bottomY + 7);
-        $pdf->Cell($contentWidth, 1.5, "Fab: 27/01/24 | Val: 27/01/26", 0, 1, 'L');
+        
+        // Generate dynamic dates
+        $fabDate = date('d/m/y');
+        $valDate = date('d/m/y', strtotime('+90 days'));
+        $pdf->Cell($contentWidth, 1.5, "Fab: {$fabDate} | Val: {$valDate}", 0, 1, 'L');
         
         // Reset text color
         $colorSchemeType = $rotuloData['color_scheme_type'] ?? $rotuloData['product_type'] ?? 'default';
@@ -1038,8 +1042,8 @@ class TcpdfService
         $rightColumnCenterY = $y + ($height / 2 - 2);
         
         // Manufacturing and validity dates
-        $fabDate = "27/01/24";
-        $valDate = "27/01/26";
+        $fabDate = date('d/m/y');
+        $valDate = date('d/m/y', strtotime('+90 days'));
         $dateText = "Fab: {$fabDate} | Val: {$valDate}";
         
         // Set font for vertical date text
@@ -1248,8 +1252,8 @@ class TcpdfService
         $rightColumnCenterY = $y + ($height / 2 - 2);
         
         // Manufacturing and validity dates
-        $fabDate = "27/01/24";
-        $valDate = "27/01/26";
+        $fabDate = date('d/m/y');
+        $valDate = date('d/m/y', strtotime('+90 days'));
         $dateText = "Fab: {$fabDate} | Val: {$valDate}";
         
         // Set font for vertical date text
