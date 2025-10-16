@@ -91,32 +91,36 @@ class PurissimaApiService
             // Deduplicate items within each order
             $deduplicatedResults = $this->deduplicateItems($utf8Results);
 
-            // Temporary: mock req field for items in one sample order so Sticker can be generated
-            $mocked = false;
-            foreach ($deduplicatedResults as $oid => &$odata) {
-                if (isset($odata['items']) && is_array($odata['items']) && !$mocked) {
-                    // Check if all items already have req field
-                    $allHaveReq = true;
-                    foreach ($odata['items'] as $item) {
-                        if (!isset($item['req']) || $item['req'] === '' || $item['req'] === null) {
-                            $allHaveReq = false;
-                            break;
-                        }
-                    }
-                    
-                    // If not all items have req, mock it for this order
-                    if (!$allHaveReq) {
-                        foreach ($odata['items'] as &$item) {
+            // Mock req field for items when in mock mode or for development testing
+            $mockMode = filter_var($_ENV['MOCK_MODE'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $isDevelopment = ($_ENV['APP_ENV'] ?? '') === 'development';
+            
+            if ($mockMode || $isDevelopment) {
+                foreach ($deduplicatedResults as $oid => &$odata) {
+                    if (isset($odata['items']) && is_array($odata['items'])) {
+                        // Check if all items already have req field
+                        $allHaveReq = true;
+                        foreach ($odata['items'] as $item) {
                             if (!isset($item['req']) || $item['req'] === '' || $item['req'] === null) {
-                                $item['req'] = '321321';
+                                $allHaveReq = false;
+                                break;
                             }
                         }
-                        unset($item);
-                        $mocked = true;
+                        
+                        // If not all items have req, mock it for this order
+                        if (!$allHaveReq) {
+                            foreach ($odata['items'] as &$item) {
+                                if (!isset($item['req']) || $item['req'] === '' || $item['req'] === null) {
+                                    $item['req'] = '321321';
+                                }
+                            }
+                            unset($item);
+                            
+                        }
                     }
                 }
+                unset($odata);
             }
-            unset($odata);
             
             return $deduplicatedResults;
 
