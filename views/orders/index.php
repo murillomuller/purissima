@@ -251,7 +251,6 @@ let isSearching = false;
 let searchTimeout = null;
 
 // Search performance optimization
-let searchCache = new Map();
 let searchIndex = new Map(); // Pre-built search index
 let lastSearchTime = 0;
 let searchDebounceDelay = 100; // Reduced for better responsiveness
@@ -288,7 +287,6 @@ function initializeCachedElements() {
 
 function buildSearchIndex(orders) {
     searchIndex.clear();
-    searchCache.clear();
     
     orders.forEach((entry, index) => {
         const o = entry.order || {};
@@ -311,7 +309,7 @@ function buildSearchIndex(orders) {
         ].filter(Boolean).join(' ').toLowerCase();
         
         // Index by words for faster searching
-        const words = searchableText.split(/\s+/).filter(word => word.length > 1);
+        const words = searchableText.split(/\s+/).filter(word => word.length > 0);
         words.forEach(word => {
             if (!searchIndex.has(word)) {
                 searchIndex.set(word, new Set());
@@ -322,16 +320,6 @@ function buildSearchIndex(orders) {
         // Also index the full text for partial matches
         searchIndex.set(`full_${index}`, searchableText);
     });
-    
-    // Limit cache size to prevent memory issues
-    if (searchCache.size > 100) {
-        const entries = Array.from(searchCache.entries());
-        searchCache.clear();
-        // Keep only the most recent 50 entries
-        entries.slice(-50).forEach(([key, value]) => {
-            searchCache.set(key, value);
-        });
-    }
 }
 
 function refreshOrders() {
@@ -626,12 +614,6 @@ function filterOrders(orders, query) {
     const q = query.toString().toLowerCase().trim();
     if (q.length === 0) return orders;
     
-    // Check cache first
-    if (searchCache.has(q)) {
-        const cachedIndices = searchCache.get(q);
-        return cachedIndices.map(index => orders[index]);
-    }
-    
     const startTime = performance.now();
     const matchingIndices = new Set();
     
@@ -645,7 +627,7 @@ function filterOrders(orders, query) {
             searchIndex.get(word).forEach(index => matchingIndices.add(index));
         }
         
-        // Also search for partial matches in full text
+        // Also search for partial matches in full text (especially important for short queries)
         for (let i = 0; i < orders.length; i++) {
             const fullText = searchIndex.get(`full_${i}`);
             if (fullText && fullText.includes(word)) {
@@ -659,7 +641,7 @@ function filterOrders(orders, query) {
             if (searchIndex.has(word)) {
                 searchIndex.get(word).forEach(index => set.add(index));
             }
-            // Also check partial matches
+            // Also check partial matches (important for short words)
             for (let i = 0; i < orders.length; i++) {
                 const fullText = searchIndex.get(`full_${i}`);
                 if (fullText && fullText.includes(word)) {
@@ -682,9 +664,6 @@ function filterOrders(orders, query) {
     
     // Convert indices back to orders
     const results = Array.from(matchingIndices).map(index => orders[index]);
-    
-    // Cache the results
-    searchCache.set(q, results);
     
     // Log performance (remove in production)
     const endTime = performance.now();
@@ -721,8 +700,8 @@ function performSearch(query) {
     const searchSpinner = cachedElements.searchSpinner;
     let showSpinner = false;
     
-    // Use immediate execution for cached results or very short queries
-    if (searchCache.has(query) || query.length <= 2) {
+    // Use immediate execution for very short queries
+    if (query.length <= 3) {
         try {
             displayOrders(ordersData);
         } finally {
