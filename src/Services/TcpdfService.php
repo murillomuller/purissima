@@ -2604,77 +2604,90 @@ class TcpdfService
 
         $currentColumnIndex = 0;
         $currentRowIndex = 0;
+        $lastRowHadPouches = false; // Track if the last completed row had pouches
+
+        // Function to check if a row has pouches
+        $rowHasPouches = function ($row) {
+            foreach ($row['columns'] as $column) {
+                if ($column['pouches_count'] > 0) {
+                    return true;
+                }
+            }
+            return false;
+        };
 
         // Function to calculate column width based on content
         $calculateColumnWidth = function ($column) use ($spacing) {
+            $maxWidth = 0;
+
+            // Calculate pouch width (sum of all pouch widths + spacing between them)
             if ($column['pouches_count'] > 0) {
-                // If column has pouches, sum all pouch widths + spacing between them
-                $totalWidth = 0;
+                $pouchWidth = 0;
                 foreach ($column['labels'] as $label) {
                     if ($label['label_type'] === 'pouch') {
-                        $totalWidth += $label['label_width'];
+                        $pouchWidth += $label['label_width'];
                     }
                 }
                 // Add spacing between pouches (n-1 spaces for n pouches)
                 if ($column['pouches_count'] > 1) {
-                    $totalWidth += ($column['pouches_count'] - 1) * $spacing;
+                    $pouchWidth += ($column['pouches_count'] - 1) * $spacing;
                 }
-                return $totalWidth;
-            } else {
-                // If column has non-pouch labels, use maximum label width
-                $maxWidth = 0;
+                $maxWidth = max($maxWidth, $pouchWidth);
+            }
+
+            // Calculate non-pouch width (maximum width of any non-pouch label)
+            if ($column['non_pouches_count'] > 0) {
                 foreach ($column['labels'] as $label) {
                     if ($label['label_type'] !== 'pouch') {
                         $maxWidth = max($maxWidth, $label['label_width']);
                     }
                 }
-                return $maxWidth;
             }
+
+            return $maxWidth;
         };
 
         // Function to calculate row height based on content
         $calculateRowHeight = function ($row) use ($spacing) {
-            $maxPouchHeight = 0;
-            $totalNonPouchHeight = 0;
-            $hasPouches = false;
-            $hasNonPouches = false;
+            $maxColumnHeight = 0;
 
             foreach ($row['columns'] as $column) {
+                $columnHeight = 0;
+
+                // Calculate pouch height (maximum height of any pouch in this column)
                 if ($column['pouches_count'] > 0) {
-                    $hasPouches = true;
                     foreach ($column['labels'] as $label) {
                         if ($label['label_type'] === 'pouch') {
-                            $maxPouchHeight = max($maxPouchHeight, $label['label_height']);
+                            $columnHeight = max($columnHeight, $label['label_height']);
                         }
                     }
                 }
 
+                // Calculate non-pouch height (sum of all non-pouch heights + spacing)
                 if ($column['non_pouches_count'] > 0) {
-                    $hasNonPouches = true;
-                    $columnNonPouchHeight = 0;
+                    $nonPouchHeight = 0;
                     foreach ($column['labels'] as $label) {
                         if ($label['label_type'] !== 'pouch') {
-                            $columnNonPouchHeight += $label['label_height'];
+                            $nonPouchHeight += $label['label_height'];
                         }
                     }
                     // Add spacing between stacked labels (n-1 spaces for n labels)
                     if ($column['non_pouches_count'] > 1) {
-                        $columnNonPouchHeight += ($column['non_pouches_count'] - 1) * $spacing;
+                        $nonPouchHeight += ($column['non_pouches_count'] - 1) * $spacing;
                     }
-                    $totalNonPouchHeight = max($totalNonPouchHeight, $columnNonPouchHeight);
+
+                    // If column has both pouches and non-pouches, add non-pouch height below pouch height
+                    if ($column['pouches_count'] > 0) {
+                        $columnHeight += $spacing + $nonPouchHeight; // Add spacing between pouches and non-pouches
+                    } else {
+                        $columnHeight = $nonPouchHeight;
+                    }
                 }
+
+                $maxColumnHeight = max($maxColumnHeight, $columnHeight);
             }
 
-            // If row has pouches, use max pouch height
-            if ($hasPouches) {
-                return $maxPouchHeight;
-            }
-            // If row has non-pouches, use sum of heights
-            if ($hasNonPouches) {
-                return $totalNonPouchHeight;
-            }
-
-            return 0; // Empty row
+            return $maxColumnHeight;
         };
 
         foreach ($labelData as $label) {
@@ -2685,11 +2698,38 @@ class TcpdfService
             $currentColumn = &$currentRow['columns'][$currentColumnIndex];
 
             if ($labelType === 'pouch') {
-                // Pouch: up to 2 side by side, but only if column has no non-pouch labels
-                $canAddToCurrentColumn = $currentColumn['pouches_count'] < 2 && $currentColumn['non_pouches_count'] === 0;
+                // Pouch: up to 3 side by side, but only if column has no non-pouch labels
+                // Also, if the last row had pouches, prioritize non-pouch-only rows
+                if ($lastRowHadPouches && $currentColumnIndex === 0) {
+                    // Check if there are non-pouch labels that could fill this row first
+                    $remainingLabels = array_slice($labelData, array_search($label, $labelData) + 1);
+                    $nonPouchCount = 0;
+                    foreach ($remainingLabels as $remainingLabel) {
+                        if ($remainingLabel['label_type'] !== 'pouch') {
+                            $nonPouchCount++;
+                            if ($nonPouchCount >= 3) { // Can fill a row with 3 non-pouches (1 per column)
+                                $canAddToCurrentColumn = false; // Skip this pouch to prioritize non-pouches
+                                break;
+                            }
+                        } else {
+                            break; // Stop at first pouch
+                        }
+                    }
+                    if ($nonPouchCount >= 3) {
+                        // Skip this pouch, it will be processed later
+                        continue;
+                    }
+                }
+                $canAddToCurrentColumn = $currentColumn['pouches_count'] < 3 && $currentColumn['non_pouches_count'] === 0;
             } else {
-                // Non-pouch: up to 3 stacked, but only if column has no pouches
-                $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 3 && $currentColumn['pouches_count'] === 0;
+                // Non-pouch: up to 4 stacked, but can be added under pouches if there's space
+                if ($currentColumn['pouches_count'] > 0) {
+                    // If column has pouches, allow up to 1 non-pouch below them
+                    $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 1;
+                } else {
+                    // If column has no pouches, allow up to 4 non-pouches
+                    $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 4;
+                }
             }
 
             // Check if the new column width would fit in the available space
@@ -2739,16 +2779,22 @@ class TcpdfService
                 $currentRow['columns'][$currentColumnIndex]['width'] = $calculateColumnWidth($currentRow['columns'][$currentColumnIndex]);
 
                 // Only move to next column if:
-                // 1. Current column is full (2 pouches or 3 non-pouches), OR
-                // 2. We have a pouch and column already has 2 pouches, OR
-                // 3. We have a non-pouch and column already has 3 non-pouches
+                // 1. Current column is full (3 pouches or 4 non-pouches), OR
+                // 2. We have a pouch and column already has 3 pouches, OR
+                // 3. We have a non-pouch and column already has 4 non-pouches (or 2 if column has pouches)
                 $currentColumn = $currentRow['columns'][$currentColumnIndex];
                 $columnIsFull = false;
 
                 if ($labelType === 'pouch') {
-                    $columnIsFull = $currentColumn['pouches_count'] >= 2;
+                    $columnIsFull = $currentColumn['pouches_count'] >= 3;
                 } else {
-                    $columnIsFull = $currentColumn['non_pouches_count'] >= 3;
+                    if ($currentColumn['pouches_count'] > 0) {
+                        // If column has pouches, max 1 non-pouch below
+                        $columnIsFull = $currentColumn['non_pouches_count'] >= 1;
+                    } else {
+                        // If column has no pouches, max 4 non-pouches
+                        $columnIsFull = $currentColumn['non_pouches_count'] >= 4;
+                    }
                 }
 
                 if ($columnIsFull) {
@@ -2768,6 +2814,9 @@ class TcpdfService
                         }
                         $currentPage['rows'][] = $currentRow;
                         $currentPage['used_height'] += $currentRow['height'] + $spacing;
+
+                        // Track if this row had pouches
+                        $lastRowHadPouches = $rowHasPouches($currentRow);
 
                         // Check if row fits on current page (use minimum height for estimation)
                         $minRowHeight = 50; // Minimum estimated height
@@ -2817,6 +2866,9 @@ class TcpdfService
                     $currentPage['rows'][] = $currentRow;
                     $currentPage['used_height'] += $currentRow['height'] + $spacing;
 
+                    // Track if this row had pouches
+                    $lastRowHadPouches = $rowHasPouches($currentRow);
+
                     // Check if row fits on current page (use minimum height for estimation)
                     $minRowHeight = 50; // Minimum estimated height
                     if ($currentPage['used_height'] + $minRowHeight + $spacing > $availableHeight) {
@@ -2851,11 +2903,17 @@ class TcpdfService
                 $currentColumn = &$currentRow['columns'][$currentColumnIndex];
 
                 if ($labelType === 'pouch') {
-                    // Pouch: up to 2 side by side, but only if column has no non-pouch labels
-                    $canAddToCurrentColumn = $currentColumn['pouches_count'] < 2 && $currentColumn['non_pouches_count'] === 0;
+                    // Pouch: up to 3 side by side, but only if column has no non-pouch labels
+                    $canAddToCurrentColumn = $currentColumn['pouches_count'] < 3 && $currentColumn['non_pouches_count'] === 0;
                 } else {
-                    // Non-pouch: up to 3 stacked, but only if column has no pouches
-                    $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 3 && $currentColumn['pouches_count'] === 0;
+                    // Non-pouch: up to 4 stacked, but can be added under pouches if there's space
+                    if ($currentColumn['pouches_count'] > 0) {
+                        // If column has pouches, allow up to 1 non-pouch below them
+                        $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 1;
+                    } else {
+                        // If column has no pouches, allow up to 4 non-pouches
+                        $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 4;
+                    }
                 }
 
                 // Check if the new column width would fit in the available space
@@ -2908,9 +2966,15 @@ class TcpdfService
                     $columnIsFull = false;
 
                     if ($labelType === 'pouch') {
-                        $columnIsFull = $currentColumn['pouches_count'] >= 2;
+                        $columnIsFull = $currentColumn['pouches_count'] >= 3;
                     } else {
-                        $columnIsFull = $currentColumn['non_pouches_count'] >= 3;
+                        if ($currentColumn['pouches_count'] > 0) {
+                            // If column has pouches, max 1 non-pouch below
+                            $columnIsFull = $currentColumn['non_pouches_count'] >= 1;
+                        } else {
+                            // If column has no pouches, max 4 non-pouches
+                            $columnIsFull = $currentColumn['non_pouches_count'] >= 4;
+                        }
                     }
 
                     if ($columnIsFull) {
@@ -2929,6 +2993,9 @@ class TcpdfService
                             }
                             $currentPage['rows'][] = $currentRow;
                             $currentPage['used_height'] += $currentRow['height'] + $spacing;
+
+                            // Track if this row had pouches
+                            $lastRowHadPouches = $rowHasPouches($currentRow);
 
                             // Check if row fits on current page (use minimum height for estimation)
                             $minRowHeight = 50; // Minimum estimated height
@@ -3085,6 +3152,14 @@ class TcpdfService
                     $pouchIndex = 0;
                     $nonPouchIndex = 0;
 
+                    // Calculate the maximum pouch height in this column for positioning non-pouches
+                    $maxPouchHeight = 0;
+                    foreach ($column['labels'] as $label) {
+                        if ($label['label_type'] === 'pouch') {
+                            $maxPouchHeight = max($maxPouchHeight, $label['label_height']);
+                        }
+                    }
+
                     foreach ($column['labels'] as $labelIndex => $label) {
                         try {
                             // Debug: Log label position
@@ -3099,8 +3174,14 @@ class TcpdfService
                                 $labelX = $columnX + ($pouchIndex * ($label['label_width'] + $spacing));
                                 $pouchIndex++;
                             } else {
-                                // Non-pouches: stacked vertically
-                                $labelY = $columnY + ($nonPouchIndex * ($label['label_height'] + $spacing));
+                                // Non-pouches: stacked vertically, positioned below pouch height if pouches exist
+                                if ($maxPouchHeight > 0) {
+                                    // Position non-pouches below the pouch height with spacing
+                                    $labelY = $columnY + $maxPouchHeight + $spacing + ($nonPouchIndex * ($label['label_height'] + $spacing));
+                                } else {
+                                    // No pouches, position normally
+                                    $labelY = $columnY + ($nonPouchIndex * ($label['label_height'] + $spacing));
+                                }
                                 $nonPouchIndex++;
                             }
 
