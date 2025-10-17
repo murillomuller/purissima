@@ -2429,6 +2429,11 @@ class TcpdfService
     {
         $labelData = [];
 
+        $this->logger->debug('Preparing batch label data', [
+            'items_count' => count($itemsWithOrderData),
+            'group_by_type' => $options['group_by_type'] ?? false
+        ]);
+
         foreach ($itemsWithOrderData as $itemIndex => $itemWithOrder) {
             $item = $itemWithOrder['item'];
             $orderData = $itemWithOrder['order_data'];
@@ -2452,9 +2457,17 @@ class TcpdfService
             $labelData[] = $rotuloData;
         }
 
-        // Group by type if requested
+        // Group by order first, then by type within each order
         if ($options['group_by_type']) {
-            $labelData = $this->groupLabelsByType($labelData);
+            $this->logger->debug('Grouping labels by order and type', [
+                'labels_before_grouping' => count($labelData)
+            ]);
+
+            $labelData = $this->groupLabelsByOrderAndType($labelData);
+
+            $this->logger->debug('Labels grouped by order and type', [
+                'labels_after_grouping' => count($labelData)
+            ]);
         }
 
         return $labelData;
@@ -2506,6 +2519,54 @@ class TcpdfService
     }
 
     /**
+     * Group labels by order first, then by type within each order (pouches first, then rest)
+     */
+    private function groupLabelsByOrderAndType(array $labelData): array
+    {
+        // First group by order
+        $orders = [];
+        foreach ($labelData as $label) {
+            $orderId = $label['order_id'] ?? 'unknown';
+            if (!isset($orders[$orderId])) {
+                $orders[$orderId] = [];
+            }
+            $orders[$orderId][] = $label;
+        }
+
+        // Then within each order, group by type (pouches first, then rest)
+        $result = [];
+        foreach ($orders as $orderId => $orderLabels) {
+            $this->logger->debug('Grouping labels for order', [
+                'order_id' => $orderId,
+                'labels_count' => count($orderLabels)
+            ]);
+
+            // Separate pouches from other types
+            $pouches = [];
+            $other = [];
+
+            foreach ($orderLabels as $label) {
+                if ($label['label_type'] === 'pouch') {
+                    $pouches[] = $label;
+                } else {
+                    $other[] = $label;
+                }
+            }
+
+            // Add pouches first, then other types
+            $result = array_merge($result, $pouches, $other);
+
+            $this->logger->debug('Order labels grouped', [
+                'order_id' => $orderId,
+                'pouches_count' => count($pouches),
+                'other_count' => count($other)
+            ]);
+        }
+
+        return $result;
+    }
+
+    /**
      * Calculate optimal layout for batch printing with minimal waste
      */
     private function calculateOptimalLayout(array $labelData, float $pageWidth, float $pageHeight, array $options): array
@@ -2532,55 +2593,396 @@ class TcpdfService
         ];
 
         $currentRow = [
-            'labels' => [],
+            'columns' => [
+                ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 1
+                ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 2
+                ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0]  // Column 3
+            ],
             'height' => 0,
             'width' => 0
         ];
 
-        foreach ($labelData as $label) {
-            $labelWidth = $label['label_width'];
-            $labelHeight = $label['label_height'];
+        $currentColumnIndex = 0;
+        $currentRowIndex = 0;
 
-            // Check if label fits in current row
-            if ($currentRow['width'] + $labelWidth + $spacing <= $availableWidth) {
-                // Add to current row
-                $currentRow['labels'][] = $label;
-                $currentRow['width'] += $labelWidth + $spacing;
-                $currentRow['height'] = max($currentRow['height'], $labelHeight);
+        // Function to calculate column width based on content
+        $calculateColumnWidth = function ($column) use ($spacing) {
+            if ($column['pouches_count'] > 0) {
+                // If column has pouches, sum all pouch widths + spacing between them
+                $totalWidth = 0;
+                foreach ($column['labels'] as $label) {
+                    if ($label['label_type'] === 'pouch') {
+                        $totalWidth += $label['label_width'];
+                    }
+                }
+                // Add spacing between pouches (n-1 spaces for n pouches)
+                if ($column['pouches_count'] > 1) {
+                    $totalWidth += ($column['pouches_count'] - 1) * $spacing;
+                }
+                return $totalWidth;
             } else {
-                // Current row is full, finalize it
-                if (!empty($currentRow['labels'])) {
+                // If column has non-pouch labels, use maximum label width
+                $maxWidth = 0;
+                foreach ($column['labels'] as $label) {
+                    if ($label['label_type'] !== 'pouch') {
+                        $maxWidth = max($maxWidth, $label['label_width']);
+                    }
+                }
+                return $maxWidth;
+            }
+        };
+
+        // Function to calculate row height based on content
+        $calculateRowHeight = function ($row) use ($spacing) {
+            $maxPouchHeight = 0;
+            $totalNonPouchHeight = 0;
+            $hasPouches = false;
+            $hasNonPouches = false;
+
+            foreach ($row['columns'] as $column) {
+                if ($column['pouches_count'] > 0) {
+                    $hasPouches = true;
+                    foreach ($column['labels'] as $label) {
+                        if ($label['label_type'] === 'pouch') {
+                            $maxPouchHeight = max($maxPouchHeight, $label['label_height']);
+                        }
+                    }
+                }
+
+                if ($column['non_pouches_count'] > 0) {
+                    $hasNonPouches = true;
+                    $columnNonPouchHeight = 0;
+                    foreach ($column['labels'] as $label) {
+                        if ($label['label_type'] !== 'pouch') {
+                            $columnNonPouchHeight += $label['label_height'];
+                        }
+                    }
+                    // Add spacing between stacked labels (n-1 spaces for n labels)
+                    if ($column['non_pouches_count'] > 1) {
+                        $columnNonPouchHeight += ($column['non_pouches_count'] - 1) * $spacing;
+                    }
+                    $totalNonPouchHeight = max($totalNonPouchHeight, $columnNonPouchHeight);
+                }
+            }
+
+            // If row has pouches, use max pouch height
+            if ($hasPouches) {
+                return $maxPouchHeight;
+            }
+            // If row has non-pouches, use sum of heights
+            if ($hasNonPouches) {
+                return $totalNonPouchHeight;
+            }
+
+            return 0; // Empty row
+        };
+
+        foreach ($labelData as $label) {
+            $labelType = $label['label_type'];
+
+            // Check if we can add this label to the current column
+            $canAddToCurrentColumn = false;
+            $currentColumn = &$currentRow['columns'][$currentColumnIndex];
+
+            if ($labelType === 'pouch') {
+                // Pouch: up to 2 side by side, but only if column has no non-pouch labels
+                $canAddToCurrentColumn = $currentColumn['pouches_count'] < 2 && $currentColumn['non_pouches_count'] === 0;
+            } else {
+                // Non-pouch: up to 3 stacked, but only if column has no pouches
+                $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 3 && $currentColumn['pouches_count'] === 0;
+            }
+
+            // Check if the new column width would fit in the available space
+            if ($canAddToCurrentColumn) {
+                // Calculate what the new column width would be
+                $tempColumn = $currentColumn;
+                $tempColumn['labels'][] = $label;
+                if ($labelType === 'pouch') {
+                    $tempColumn['pouches_count']++;
+                } else {
+                    $tempColumn['non_pouches_count']++;
+                }
+
+                $newColumnWidth = $calculateColumnWidth($tempColumn);
+                $currentRowWidth = 0;
+
+                // Calculate current row width (sum of all column widths + spacing)
+                for ($i = 0; $i < 3; $i++) {
+                    if ($i === $currentColumnIndex) {
+                        $currentRowWidth += $newColumnWidth;
+                    } else {
+                        $currentRowWidth += $calculateColumnWidth($currentRow['columns'][$i]);
+                    }
+                    if ($i < 2) { // Add spacing between columns
+                        $currentRowWidth += $spacing;
+                    }
+                }
+
+                // Check if row would fit within available width
+                if ($currentRowWidth > $availableWidth) {
+                    $canAddToCurrentColumn = false;
+                }
+            }
+
+            if ($canAddToCurrentColumn) {
+                // Add to current column
+                $currentRow['columns'][$currentColumnIndex]['labels'][] = $label;
+
+                // Update counts
+                if ($labelType === 'pouch') {
+                    $currentRow['columns'][$currentColumnIndex]['pouches_count']++;
+                } else {
+                    $currentRow['columns'][$currentColumnIndex]['non_pouches_count']++;
+                }
+
+                // Calculate and update column width
+                $currentRow['columns'][$currentColumnIndex]['width'] = $calculateColumnWidth($currentRow['columns'][$currentColumnIndex]);
+
+                // Only move to next column if:
+                // 1. Current column is full (2 pouches or 3 non-pouches), OR
+                // 2. We have a pouch and column already has 2 pouches, OR
+                // 3. We have a non-pouch and column already has 3 non-pouches
+                $currentColumn = $currentRow['columns'][$currentColumnIndex];
+                $columnIsFull = false;
+
+                if ($labelType === 'pouch') {
+                    $columnIsFull = $currentColumn['pouches_count'] >= 2;
+                } else {
+                    $columnIsFull = $currentColumn['non_pouches_count'] >= 3;
+                }
+
+                if ($columnIsFull) {
+                    // Move to next column
+                    $currentColumnIndex++;
+
+                    // If we've filled all 3 columns, move to next row
+                    if ($currentColumnIndex >= 3) {
+                        // Calculate dynamic row height and width
+                        $currentRow['height'] = $calculateRowHeight($currentRow);
+                        $currentRow['width'] = 0;
+                        for ($i = 0; $i < 3; $i++) {
+                            $currentRow['width'] += $calculateColumnWidth($currentRow['columns'][$i]);
+                            if ($i < 2) { // Add spacing between columns
+                                $currentRow['width'] += $spacing;
+                            }
+                        }
+                        $currentPage['rows'][] = $currentRow;
+                        $currentPage['used_height'] += $currentRow['height'] + $spacing;
+
+                        // Check if row fits on current page (use minimum height for estimation)
+                        $minRowHeight = 50; // Minimum estimated height
+                        if ($currentPage['used_height'] + $minRowHeight + $spacing > $availableHeight) {
+                            // Page is full, start new page
+                            $layout['pages'][] = $currentPage;
+                            $layout['total_pages']++;
+
+                            $currentPage = [
+                                'labels' => [],
+                                'used_width' => 0,
+                                'used_height' => 0,
+                                'rows' => []
+                            ];
+                        }
+
+                        // Start new row
+                        $currentRow = [
+                            'columns' => [
+                                ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 1
+                                ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 2
+                                ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0]  // Column 3
+                            ],
+                            'height' => 0,
+                            'width' => 0
+                        ];
+
+                        $currentColumnIndex = 0;
+                        $currentRowIndex++;
+                    }
+                }
+            } else {
+                // Current column is full or type mismatch, move to next column
+                $currentColumnIndex++;
+
+                // If we've tried all 3 columns, move to next row
+                if ($currentColumnIndex >= 3) {
+                    // Calculate dynamic row height and width
+                    $currentRow['height'] = $calculateRowHeight($currentRow);
+                    $currentRow['width'] = 0;
+                    for ($i = 0; $i < 3; $i++) {
+                        $currentRow['width'] += $calculateColumnWidth($currentRow['columns'][$i]);
+                        if ($i < 2) { // Add spacing between columns
+                            $currentRow['width'] += $spacing;
+                        }
+                    }
                     $currentPage['rows'][] = $currentRow;
                     $currentPage['used_height'] += $currentRow['height'] + $spacing;
-                }
 
-                // Check if row fits on current page
-                if ($currentPage['used_height'] + $labelHeight + $spacing > $availableHeight) {
-                    // Page is full, start new page
-                    $layout['pages'][] = $currentPage;
-                    $layout['total_pages']++;
+                    // Check if row fits on current page (use minimum height for estimation)
+                    $minRowHeight = 50; // Minimum estimated height
+                    if ($currentPage['used_height'] + $minRowHeight + $spacing > $availableHeight) {
+                        // Page is full, start new page
+                        $layout['pages'][] = $currentPage;
+                        $layout['total_pages']++;
 
-                    $currentPage = [
-                        'labels' => [],
-                        'used_width' => 0,
-                        'used_height' => 0,
-                        'rows' => []
+                        $currentPage = [
+                            'labels' => [],
+                            'used_width' => 0,
+                            'used_height' => 0,
+                            'rows' => []
+                        ];
+                    }
+
+                    // Start new row
+                    $currentRow = [
+                        'columns' => [
+                            ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 1
+                            ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 2
+                            ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0]  // Column 3
+                        ],
+                        'height' => 0,
+                        'width' => 0
                     ];
+
+                    $currentColumnIndex = 0;
+                    $currentRowIndex++;
                 }
 
-                // Start new row
-                $currentRow = [
-                    'labels' => [$label],
-                    'height' => $labelHeight,
-                    'width' => $labelWidth + $spacing
-                ];
+                // Try to add the label to the new column
+                $currentColumn = &$currentRow['columns'][$currentColumnIndex];
+
+                if ($labelType === 'pouch') {
+                    // Pouch: up to 2 side by side, but only if column has no non-pouch labels
+                    $canAddToCurrentColumn = $currentColumn['pouches_count'] < 2 && $currentColumn['non_pouches_count'] === 0;
+                } else {
+                    // Non-pouch: up to 3 stacked, but only if column has no pouches
+                    $canAddToCurrentColumn = $currentColumn['non_pouches_count'] < 3 && $currentColumn['pouches_count'] === 0;
+                }
+
+                // Check if the new column width would fit in the available space
+                if ($canAddToCurrentColumn) {
+                    // Calculate what the new column width would be
+                    $tempColumn = $currentColumn;
+                    $tempColumn['labels'][] = $label;
+                    if ($labelType === 'pouch') {
+                        $tempColumn['pouches_count']++;
+                    } else {
+                        $tempColumn['non_pouches_count']++;
+                    }
+
+                    $newColumnWidth = $calculateColumnWidth($tempColumn);
+                    $currentRowWidth = 0;
+
+                    // Calculate current row width (sum of all column widths + spacing)
+                    for ($i = 0; $i < 3; $i++) {
+                        if ($i === $currentColumnIndex) {
+                            $currentRowWidth += $newColumnWidth;
+                        } else {
+                            $currentRowWidth += $calculateColumnWidth($currentRow['columns'][$i]);
+                        }
+                        if ($i < 2) { // Add spacing between columns
+                            $currentRowWidth += $spacing;
+                        }
+                    }
+
+                    // Check if row would fit within available width
+                    if ($currentRowWidth > $availableWidth) {
+                        $canAddToCurrentColumn = false;
+                    }
+                }
+
+                if ($canAddToCurrentColumn) {
+                    $currentRow['columns'][$currentColumnIndex]['labels'][] = $label;
+
+                    // Update counts
+                    if ($labelType === 'pouch') {
+                        $currentRow['columns'][$currentColumnIndex]['pouches_count']++;
+                    } else {
+                        $currentRow['columns'][$currentColumnIndex]['non_pouches_count']++;
+                    }
+
+                    // Calculate and update column width
+                    $currentRow['columns'][$currentColumnIndex]['width'] = $calculateColumnWidth($currentRow['columns'][$currentColumnIndex]);
+
+                    // Check if column is now full and move to next if needed
+                    $currentColumn = $currentRow['columns'][$currentColumnIndex];
+                    $columnIsFull = false;
+
+                    if ($labelType === 'pouch') {
+                        $columnIsFull = $currentColumn['pouches_count'] >= 2;
+                    } else {
+                        $columnIsFull = $currentColumn['non_pouches_count'] >= 3;
+                    }
+
+                    if ($columnIsFull) {
+                        $currentColumnIndex++;
+
+                        // If we've filled all 3 columns, move to next row
+                        if ($currentColumnIndex >= 3) {
+                            // Calculate dynamic row height and width
+                            $currentRow['height'] = $calculateRowHeight($currentRow);
+                            $currentRow['width'] = 0;
+                            for ($i = 0; $i < 3; $i++) {
+                                $currentRow['width'] += $calculateColumnWidth($currentRow['columns'][$i]);
+                                if ($i < 2) { // Add spacing between columns
+                                    $currentRow['width'] += $spacing;
+                                }
+                            }
+                            $currentPage['rows'][] = $currentRow;
+                            $currentPage['used_height'] += $currentRow['height'] + $spacing;
+
+                            // Check if row fits on current page (use minimum height for estimation)
+                            $minRowHeight = 50; // Minimum estimated height
+                            if ($currentPage['used_height'] + $minRowHeight + $spacing > $availableHeight) {
+                                // Page is full, start new page
+                                $layout['pages'][] = $currentPage;
+                                $layout['total_pages']++;
+
+                                $currentPage = [
+                                    'labels' => [],
+                                    'used_width' => 0,
+                                    'used_height' => 0,
+                                    'rows' => []
+                                ];
+                            }
+
+                            // Start new row
+                            $currentRow = [
+                                'columns' => [
+                                    ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 1
+                                    ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0], // Column 2
+                                    ['labels' => [], 'width' => 0, 'height' => 0, 'pouches_count' => 0, 'non_pouches_count' => 0]  // Column 3
+                                ],
+                                'height' => 0,
+                                'width' => 0
+                            ];
+
+                            $currentColumnIndex = 0;
+                            $currentRowIndex++;
+                        }
+                    }
+                }
             }
         }
 
         // Add final row and page
-        if (!empty($currentRow['labels'])) {
+        if (
+            !empty($currentRow['columns'][0]['labels']) ||
+            !empty($currentRow['columns'][1]['labels']) ||
+            !empty($currentRow['columns'][2]['labels'])
+        ) {
+            // Calculate dynamic row height and width for final row
+            $currentRow['height'] = $calculateRowHeight($currentRow);
+            $currentRow['width'] = 0;
+            for ($i = 0; $i < 3; $i++) {
+                $currentRow['width'] += $calculateColumnWidth($currentRow['columns'][$i]);
+                if ($i < 2) { // Add spacing between columns
+                    $currentRow['width'] += $spacing;
+                }
+            }
             $currentPage['rows'][] = $currentRow;
+            $currentPage['used_height'] += $currentRow['height'] + $spacing;
         }
+
         if (!empty($currentPage['rows'])) {
             $layout['pages'][] = $currentPage;
             $layout['total_pages']++;
@@ -2602,8 +3004,10 @@ class TcpdfService
 
         foreach ($layout['pages'] as $page) {
             foreach ($page['rows'] as $row) {
-                $rowArea = $row['width'] * $row['height'];
-                $totalUsedArea += $rowArea;
+                foreach ($row['columns'] as $column) {
+                    $columnArea = $column['width'] * $column['height'];
+                    $totalUsedArea += $columnArea;
+                }
             }
         }
 
@@ -2624,6 +3028,18 @@ class TcpdfService
             throw new \Exception('No pages to generate labels for');
         }
 
+        // Debug: Log batch layout overview
+        $this->logger->debug('Starting rotulo batch generation', [
+            'total_pages' => $layout['total_pages'],
+            'total_labels' => $layout['total_labels'],
+            'pages_count' => count($layout['pages']),
+            'options' => [
+                'margin' => $margin,
+                'spacing' => $spacing
+            ]
+        ]);
+        //generate log for $layout only to docker console
+        $this->logger->debug('Layout ROLA??', $layout);
         foreach ($layout['pages'] as $pageIndex => $page) {
             // Skip the first page (index 0) since it's already added
             if ($pageIndex > 0) {
@@ -2632,49 +3048,93 @@ class TcpdfService
 
             $currentY = $margin;
 
+            // Debug: Log page information
+            $this->logger->debug('Processing rotulo batch page', [
+                'page_index' => $pageIndex,
+                'rows_count' => count($page['rows']),
+                'start_y_position' => $currentY
+            ]);
+
             if (empty($page['rows'])) {
                 $this->logger->warning('Empty page in batch layout', ['page_index' => $pageIndex]);
                 continue;
             }
 
-            foreach ($page['rows'] as $row) {
-                $currentX = $margin;
-                $rowHeight = $row['height'];
+            foreach ($page['rows'] as $rowIndex => $row) {
+                $rowHeight = $row['height']; // Use dynamic row height from row data
 
-                if (empty($row['labels'])) {
-                    $this->logger->warning('Empty row in batch layout', ['page_index' => $pageIndex]);
-                    continue;
+                // Dynamic column positioning based on actual column widths
+                $columnPositions = [];
+                $currentX = $margin;
+                for ($i = 0; $i < 3; $i++) {
+                    $columnPositions[$i] = $currentX;
+                    $currentX += $row['columns'][$i]['width'];
+                    if ($i < 2) { // Add spacing between columns
+                        $currentX += $spacing;
+                    }
                 }
 
-                foreach ($row['labels'] as $label) {
-                    try {
-                        // Add the label
-                        $this->addSingleRotulo(
-                            $pdf,
-                            $label,
-                            $currentX,
-                            $currentY,
-                            $label['label_width'],
-                            $label['label_height']
-                        );
-                    } catch (\Exception $e) {
-                        $this->logger->error('Error adding single rotulo in batch', [
-                            'error' => $e->getMessage(),
-                            'label_data' => $label,
-                            'position' => ['x' => $currentX, 'y' => $currentY],
-                            'dimensions' => ['width' => $label['label_width'], 'height' => $label['label_height']]
-                        ]);
-                        throw $e;
+                foreach ($row['columns'] as $columnIndex => $column) {
+                    if (empty($column['labels'])) {
+                        continue; // Skip empty columns
                     }
 
-                    // Move to next position in row
-                    $currentX += $label['label_width'] + $spacing;
+                    $columnX = $columnPositions[$columnIndex];
+                    $columnY = $currentY;
+
+                    $pouchIndex = 0;
+                    $nonPouchIndex = 0;
+
+                    foreach ($column['labels'] as $labelIndex => $label) {
+                        try {
+                            // Debug: Log label position
+                            $this->logger->debug('Adding rotulo batch label', $label);
+
+                            // Calculate position based on label type
+                            $labelX = $columnX;
+                            $labelY = $columnY;
+
+                            if ($label['label_type'] === 'pouch') {
+                                // Pouches: side by side horizontally
+                                $labelX = $columnX + ($pouchIndex * ($label['label_width'] + $spacing));
+                                $pouchIndex++;
+                            } else {
+                                // Non-pouches: stacked vertically
+                                $labelY = $columnY + ($nonPouchIndex * ($label['label_height'] + $spacing));
+                                $nonPouchIndex++;
+                            }
+
+                            // Add the label
+                            $this->addSingleRotulo(
+                                $pdf,
+                                $label,
+                                $labelX,
+                                $labelY,
+                                $label['label_width'],
+                                $label['label_height']
+                            );
+                        } catch (\Exception $e) {
+                            $this->logger->error('Error adding single rotulo in batch', [
+                                'error' => $e->getMessage(),
+                                'label_data' => $label,
+                                'position' => ['x' => $labelX, 'y' => $labelY],
+                                'dimensions' => ['width' => $label['label_width'], 'height' => $label['label_height']]
+                            ]);
+                            throw $e;
+                        }
+                    }
                 }
 
                 // Move to next row
                 $currentY += $rowHeight + $spacing;
             }
         }
+
+        // Debug: Log completion
+        $this->logger->debug('Rotulo batch generation completed', [
+            'total_pages_processed' => count($layout['pages']),
+            'total_labels_processed' => $layout['total_labels']
+        ]);
     }
 
     /**
