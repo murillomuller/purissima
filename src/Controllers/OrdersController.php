@@ -50,7 +50,6 @@ class OrdersController extends BaseController
                 'success' => true,
                 'orders' => $processedOrders
             ]);
-
         } catch (\Exception $e) {
             $this->logger->error('Failed to load orders via API', [
                 'error' => $e->getMessage()
@@ -58,13 +57,13 @@ class OrdersController extends BaseController
 
             $message = match (true) {
                 str_contains($e->getMessage(), '500 Internal Server Error') =>
-                    'Servidor temporariamente indisponível. Tente novamente em alguns minutos.',
+                'Servidor temporariamente indisponível. Tente novamente em alguns minutos.',
                 str_contains($e->getMessage(), 'timeout') =>
-                    'Tempo limite excedido. Verifique sua conexão e tente novamente.',
+                'Tempo limite excedido. Verifique sua conexão e tente novamente.',
                 str_contains($e->getMessage(), 'connection') =>
-                    'Erro de conexão. Verifique sua internet e tente novamente.',
+                'Erro de conexão. Verifique sua internet e tente novamente.',
                 default =>
-                    'Erro interno do servidor. Entre em contato com o suporte técnico.'
+                'Erro interno do servidor. Entre em contato com o suporte técnico.'
             };
 
             return $this->json(['success' => false, 'error' => $message], 500);
@@ -86,14 +85,13 @@ class OrdersController extends BaseController
 
             // This will output the PDF directly to browser and log the download
             $filename = $this->pdfService->createPrescriptionPdf($order['order'], $order['items']);
-            
+
             // This line should never be reached as the PDF is output directly
             return $this->json([
                 'success' => true,
                 'filename' => $filename,
                 'message' => 'Prescription generated successfully'
             ]);
-
         } catch (\Exception $e) {
             $this->logger->error('Failed to generate prescription', [
                 'order_id' => $request->get('order_id'),
@@ -121,7 +119,6 @@ class OrdersController extends BaseController
             }
 
             return $this->file($filePath, $filename);
-
         } catch (\Exception $e) {
             $this->logger->error('Failed to download prescription', [
                 'filename' => $request->getQuery('filename'),
@@ -140,7 +137,7 @@ class OrdersController extends BaseController
         // Suppress error output to prevent "headers already sent" error
         $oldErrorReporting = error_reporting(0);
         $oldDisplayErrors = ini_set('display_errors', 0);
-        
+
         try {
             $orderId = $request->get('order_id');
             if (empty($orderId)) {
@@ -154,23 +151,31 @@ class OrdersController extends BaseController
 
             $orderData = $order['order'];
             $items = $order['items'] ?? [];
-            
-            // Check if all items have req field
-            $allItemsHaveReq = true;
-            foreach ($items as $item) {
-                if (!isset($item['req']) || trim((string)$item['req']) === '') {
-                    $allItemsHaveReq = false;
-                    break;
+
+            // Check if all items have req field (skip in dev mode)
+            $devMode = filter_var($_ENV['DEV_MODE'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+
+            if (!$devMode) {
+                $allItemsHaveReq = true;
+                foreach ($items as $item) {
+                    if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                        $allItemsHaveReq = false;
+                        break;
+                    }
                 }
-            }
-            
-            if (!$allItemsHaveReq) {
-                return $this->json(['success' => false, 'error' => 'Todos os itens devem ter campo req preenchido'], 400);
+
+                if (!$allItemsHaveReq) {
+                    return $this->json(['success' => false, 'error' => 'Todos os itens devem ter campo req preenchido'], 400);
+                }
+            } else {
+                $this->logger->info('DEV_MODE enabled: Skipping REQ field validation for rótulo generation', [
+                    'order_id' => $orderId
+                ]);
             }
 
             // This will output the PDF directly to browser and log the download
             $filename = $this->pdfService->createStickerPdf($orderData, $items);
-            
+
             // This line should never be reached as the PDF is output directly
             return $this->json([
                 'success' => true,
@@ -193,67 +198,90 @@ class OrdersController extends BaseController
         }
     }
 
-	public function generateBatchPrescriptions(Request $request)
-	{
-		try {
-			$ids = $request->get('order_ids');
-			if (empty($ids)) {
-				return $this->json(['success' => false, 'error' => 'Order IDs are required'], 400);
-			}
-			
-			// Accept JSON array or comma-separated string
-			if (is_string($ids)) {
-				$decoded = json_decode($ids, true);
-				if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-					$ids = $decoded;
-				} else {
-					$ids = array_filter(array_map('trim', explode(',', $ids)));
-				}
-			}
-			
-			if (!is_array($ids) || count($ids) === 0) {
-				return $this->json(['success' => false, 'error' => 'Invalid order IDs'], 400);
-			}
-			
-			$orders = [];
-			foreach ($ids as $orderId) {
-				try {
-					$order = $this->purissimaApi->getOrderById($orderId);
-					if ($order && isset($order['order'])) {
-						$orders[] = [
-							'order' => $order['order'],
-							'items' => $order['items'] ?? []
-						];
-					}
-				} catch (\Exception $e) {
-					$this->logger->warning('Skipping order during batch generation', [
-						'order_id' => $orderId,
-						'error' => $e->getMessage()
-					]);
-				}
-			}
-			
-			if (count($orders) === 0) {
-				return $this->json(['success' => false, 'error' => 'No valid orders found'], 404);
-			}
-			
-			// This will output the PDF directly to browser and log the download
-			$filename = $this->pdfService->createBatchPrescriptionPdf($orders);
-			
-			// This line should never be reached as the PDF is output directly
-			return $this->json([
-				'success' => true,
-				'filename' => $filename,
-				'message' => 'Batch prescription generated successfully'
-			]);
-		} catch (\Exception $e) {
-			$this->logger->error('Failed to generate batch prescriptions', [
-				'error' => $e->getMessage()
-			]);
-			return $this->json([
-				'success' => false,
-				'error' => 'Failed to generate batch prescriptions: ' . $e->getMessage()
-			], 500);
-		}
-	}
+    public function getAppConfig(Request $request)
+    {
+        try {
+            $devMode = filter_var($_ENV['DEV_MODE'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+
+            return $this->json([
+                'success' => true,
+                'config' => [
+                    'dev_mode' => $devMode,
+                    'app_env' => $_ENV['APP_ENV'] ?? 'development'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get app config', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao obter configuração: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function generateBatchPrescriptions(Request $request)
+    {
+        try {
+            $ids = $request->get('order_ids');
+            if (empty($ids)) {
+                return $this->json(['success' => false, 'error' => 'Order IDs are required'], 400);
+            }
+
+            // Accept JSON array or comma-separated string
+            if (is_string($ids)) {
+                $decoded = json_decode($ids, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $ids = $decoded;
+                } else {
+                    $ids = array_filter(array_map('trim', explode(',', $ids)));
+                }
+            }
+
+            if (!is_array($ids) || count($ids) === 0) {
+                return $this->json(['success' => false, 'error' => 'Invalid order IDs'], 400);
+            }
+
+            $orders = [];
+            foreach ($ids as $orderId) {
+                try {
+                    $order = $this->purissimaApi->getOrderById($orderId);
+                    if ($order && isset($order['order'])) {
+                        $orders[] = [
+                            'order' => $order['order'],
+                            'items' => $order['items'] ?? []
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->warning('Skipping order during batch generation', [
+                        'order_id' => $orderId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            if (count($orders) === 0) {
+                return $this->json(['success' => false, 'error' => 'No valid orders found'], 404);
+            }
+
+            // This will output the PDF directly to browser and log the download
+            $filename = $this->pdfService->createBatchPrescriptionPdf($orders);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Batch prescription generated successfully'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to generate batch prescriptions', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to generate batch prescriptions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

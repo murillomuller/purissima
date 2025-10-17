@@ -6,24 +6,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - type: bind
-        source: ./src
-        target: /var/www/html/src
-      - type: bind
-        source: ./public
-        target: /var/www/html/public
-      - type: bind
-        source: ./views
-        target: /var/www/html/views
-      - type: bind
-        source: ./storage
-        target: /var/www/html/storage
-      - type: bind
-        source: ./composer.json
-        target: /var/www/html/composer.json
-      - type: bind
-        source: ./composer.lock
-        target: /var/www/html/composer.lock
+      - /mnt/c/Users/muril/Repos/purissima/src:/var/www/html/src
+      - /mnt/c/Users/muril/Repos/purissima/public:/var/www/html/public
+      - /mnt/c/Users/muril/Repos/purissima/views:/var/www/html/views
+      - /mnt/c/Users/muril/Repos/purissima/storage:/var/www/html/storage
     environment:
       - APP_ENV=development
       - APP_DEBUG=true
@@ -37,5 +23,5 @@ services:
       - PDF_MAX_SIZE=10485760
       - LOG_LEVEL=debug
       - LOG_FILE=storage/logs/app.log
-      - MOCK_MODE=true
+      - DEV_MODE=true
     command: php -S 0.0.0.0:8000 -t public

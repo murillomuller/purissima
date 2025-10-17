@@ -24,6 +24,7 @@ try {
     $_ENV['PDF_MAX_SIZE'] = $_ENV['PDF_MAX_SIZE'] ?? '10485760';
     $_ENV['LOG_LEVEL'] = $_ENV['LOG_LEVEL'] ?? 'debug';
     $_ENV['LOG_FILE'] = $_ENV['LOG_FILE'] ?? 'storage/logs/app.log';
+    $_ENV['DEV_MODE'] = $_ENV['DEV_MODE'] ?? 'false';
 }
 
 // Create application instance
@@ -39,6 +40,7 @@ $router->get('/orders/api', [OrdersController::class, 'getOrdersApi']); // Async
 $router->post('/orders/generate-prescription', [OrdersController::class, 'generatePrescription']);
 $router->post('/orders/generate-batch-prescriptions', [OrdersController::class, 'generateBatchPrescriptions']);
 $router->post('/orders/generate-sticker', [OrdersController::class, 'generateSticker']);
+$router->get('/orders/config', [OrdersController::class, 'getAppConfig']);
 $router->get('/download-prescription', [OrdersController::class, 'downloadPrescription']);
 
 // Handle the request
