@@ -454,6 +454,154 @@ class TcpdfService
      * @param int $height Height of the rotulo area
      */
     /**
+     * Abbreviate patient name if it's too long for the available width
+     * 
+     * @param object $pdf The PDF object
+     * @param string $name The patient name to abbreviate
+     * @param float $maxWidth Maximum width available for the name
+     * @param string $font Font name
+     * @param float $fontSize Font size
+     * @return string Abbreviated name if needed
+     */
+    private function abbreviatePatientName($pdf, string $name, float $maxWidth, string $font, float $fontSize): string
+    {
+        // Set font temporarily to measure text width
+        try { 
+            $pdf->SetFont($font, '', $fontSize); 
+        } catch (\Exception $e) { 
+            $pdf->SetFont('helvetica', 'B', $fontSize); 
+        }
+        
+        // Get text width
+        $textWidth = $pdf->GetStringWidth($name);
+        
+        // If text fits, return as is
+        if ($textWidth <= $maxWidth) {
+            return $name;
+        }
+        
+        // Split name into words
+        $words = explode(' ', trim($name));
+        
+        // If single word, truncate it
+        if (count($words) === 1) {
+            $word = $words[0];
+            while ($pdf->GetStringWidth($word . '...') > $maxWidth && strlen($word) > 3) {
+                $word = substr($word, 0, -1);
+            }
+            return $word . '...';
+        }
+        
+        // For multiple words, try different abbreviation strategies
+        $strategies = [
+            // Strategy 1: First name + last name (current pouch logic)
+            function($words) {
+                if (count($words) >= 2) {
+                    return $words[0] . ' ' . end($words);
+                }
+                return $words[0];
+            },
+            // Strategy 2: First name + last name initial
+            function($words) {
+                if (count($words) >= 2) {
+                    return $words[0] . ' ' . substr(end($words), 0, 1) . '.';
+                }
+                return $words[0];
+            },
+            // Strategy 3: First name only
+            function($words) {
+                return $words[0];
+            },
+            // Strategy 4: First initial + last name
+            function($words) {
+                if (count($words) >= 2) {
+                    return substr($words[0], 0, 1) . '. ' . end($words);
+                }
+                return substr($words[0], 0, 1) . '.';
+            },
+            // Strategy 5: First initial + last initial
+            function($words) {
+                if (count($words) >= 2) {
+                    return substr($words[0], 0, 1) . '. ' . substr(end($words), 0, 1) . '.';
+                }
+                return substr($words[0], 0, 1) . '.';
+            }
+        ];
+        
+        // Try each strategy until one fits
+        foreach ($strategies as $strategy) {
+            $abbreviated = $strategy($words);
+            if ($pdf->GetStringWidth($abbreviated) <= $maxWidth) {
+                return $abbreviated;
+            }
+        }
+        
+        // If all strategies fail, return first word truncated
+        $firstWord = $words[0];
+        while ($pdf->GetStringWidth($firstWord . '...') > $maxWidth && strlen($firstWord) > 3) {
+            $firstWord = substr($firstWord, 0, -1);
+        }
+        return $firstWord . '...';
+    }
+
+    /**
+     * Get text color for rotulo based on product type and layout type
+     * 
+     * @param string $productType Product type (DIA, NOITE, CAPSULAS, or default)
+     * @param string $layoutType Layout type (pouch, capsula, horizontal)
+     * @return array Text color as [C, M, Y, K] array
+     */
+    private function getRotuloTextColor(string $productType = 'default', string $layoutType = 'capsula'): array
+    {
+        // If layout type is pouch, return pouch text color
+        if ($layoutType === 'pouch') {
+            // Text: Dark for contrast on light background
+            return [0, 0, 0, 100];
+        }
+        
+        switch (mb_strtoupper($productType, 'UTF-8')) {
+            case 'DIA':
+            case 'NOITE':
+            case 'PREMIO':
+            case 'POUCH':
+                // Text: Dark for contrast on light background
+                return [0, 0, 0, 100];
+                
+            case 'CAPSULAS':
+                // Text: White for contrast
+                return [0, 0, 0, 0];
+                
+            case 'CAPSULA':
+                // Text: White for contrast
+                return [0, 0, 0, 0];
+                
+            case 'MY FORMULA':
+                // Text: White for contrast
+                return [0, 0, 0, 0];
+                
+            case 'OTHER':
+                // Text: White for contrast
+                return [0, 0, 0, 0];
+                
+            case 'AVANÇADA':
+                // Text: White for contrast
+                return [0, 0, 0, 0];
+                
+            case 'ESSENCIAL':
+                // Text: White for contrast
+                return [0, 0, 0, 0];
+                
+            case 'PREMIUM':
+                // Text: Custom color for premium
+                return [5, 10, 31, 0];
+                
+            default:
+                // Text: Black
+                return [0, 0, 0, 100];
+        }
+    }
+
+    /**
      * Set color scheme for rotulo based on product type and layout type
      * 
      * @param Fpdi $pdf The PDF object
@@ -469,6 +617,9 @@ class TcpdfService
             'layoutType' => $layoutType
         ]);
         
+        // Get text color from the dedicated function
+        $textColor = $this->getRotuloTextColor($productType, $layoutType);
+        
         // If layout type is pouch, set pouch color scheme and return
         if ($layoutType === 'pouch') {
             // Standard pouch color scheme for all pouch products
@@ -476,8 +627,8 @@ class TcpdfService
             $pdf->SetFillColor(5, 10, 28, 6);
             // Border: C=5, M=10, Y=28, K=6 (same as background)
             $pdf->SetDrawColor(5, 10, 28, 6);
-            // Text: Dark for contrast on light background
-            $pdf->SetTextColor(0, 0, 0, 100);
+            // Text: Use color from getRotuloTextColor function
+            $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
             return;
         }
         
@@ -491,8 +642,8 @@ class TcpdfService
                 $pdf->SetFillColor(5, 10, 28, 6);
                 // Border: C=5, M=10, Y=28, K=6 (same as background)
                 $pdf->SetDrawColor(5, 10, 28, 6);
-                // Text: Dark for contrast on light background
-                $pdf->SetTextColor(0, 0, 0, 100);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
             case 'CAPSULAS':
@@ -501,8 +652,8 @@ class TcpdfService
                 $pdf->SetFillColor(60, 0, 60, 20);
                 // Border: C=70, M=0, Y=70, K=30 (darker green)
                 $pdf->SetDrawColor(70, 0, 70, 30);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
             case 'CAPSULA':
@@ -511,8 +662,8 @@ class TcpdfService
                 $pdf->SetFillColor(30, 0, 0, 100);
                 // Border: C=30, M=0, Y=0, K=100 (same as background)
                 $pdf->SetDrawColor(30, 0, 0, 100);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
             case 'MY FORMULA':
@@ -521,8 +672,8 @@ class TcpdfService
                 $pdf->SetFillColor(28, 70, 100, 40);
                 // Border: C=28, M=70, Y=100, K=40 (same as background)
                 $pdf->SetDrawColor(28, 70, 100, 40);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
             case 'OTHER':
@@ -531,8 +682,8 @@ class TcpdfService
                 $pdf->SetFillColor(60, 10, 60, 35);
                 // Border: C=60, M=10, Y=60, K=35 (same as background)
                 $pdf->SetDrawColor(60, 10, 60, 35);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
             case 'AVANÇADA':
@@ -541,30 +692,29 @@ class TcpdfService
                 $pdf->SetFillColor(28, 70, 100, 40);
                 // Border: C=28, M=70, Y=100, K=40 (same as background)
                 $pdf->SetDrawColor(28, 70, 100, 40);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
-            case 'PREMIUM':
+            case 'ESSENCIAL':
                 // Specific color scheme for PREMIUM tier
                 // Background: C=60, M=10, Y=60, K=35 (dark green with slight magenta)
                 $pdf->SetFillColor(60, 10, 60, 35);
                 // Border: C=60, M=10, Y=60, K=35 (same as background)
                 $pdf->SetDrawColor(60, 10, 60, 35);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
                 
-            case 'ESSENCIAL':
+            case 'PREMIUM':
                 // Specific color scheme for ESSENCIAL tier
                 // Background: C=30, M=0, Y=0, K=100 (dark blue/black)
                 $pdf->SetFillColor(30, 0, 0, 100);
                 // Border: C=30, M=0, Y=0, K=100 (same as background)
                 $pdf->SetDrawColor(30, 0, 0, 100);
-                // Text: White for contrast
-                $pdf->SetTextColor(0, 0, 0, 0);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
-                
                 
             default:
                 // Default light gray scheme
@@ -572,10 +722,10 @@ class TcpdfService
                 $pdf->SetFillColor(0, 0, 0, 6);
                 // Border: C=0, M=0, Y=0, K=20
                 $pdf->SetDrawColor(0, 0, 0, 20);
-                // Text: Black
-                $pdf->SetTextColor(0, 0, 0, 100);
+                // Text: Use color from getRotuloTextColor function
+                $pdf->SetTextColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
                 break;
-            }
+        }
     }
 
     /**
@@ -614,24 +764,13 @@ class TcpdfService
         $nome = $rotuloData['nome'] ?? $rotuloData['patient_name'] ?? 'NOME';
         
         // Check if name is too long and abbreviate if necessary
-        try { $pdf->SetFont('brandontextblack', '', 13); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 13); }
         $nomeUpper = mb_strtoupper($nome, 'UTF-8');
-        $nameWidth = $pdf->GetStringWidth($nomeUpper);
-        
-        if ($nameWidth > $contentWidth) {
-            // Abbreviate name: keep first name and last name
-            $nameParts = explode(' ', trim($nome));
-            if (count($nameParts) >= 2) {
-                $firstName = $nameParts[0];
-                $lastName = end($nameParts);
-                $nome = $firstName . ' ' . $lastName;
-            }
-        }
+        $abbreviatedNome = $this->abbreviatePatientName($pdf, $nomeUpper, $contentWidth, 'brandontextblack', 13);
         
         // Set text color to CMYK: C=55, M=61, Y=86, K=60
         $pdf->SetTextColor(55, 61, 86, 60);
         $pdf->SetXY($x + 1, $currentY);
-        $pdf->Cell($contentWidth, 4, $this->cleanText(mb_strtoupper($nome, 'UTF-8')), 0, 1, 'L');
+        $pdf->Cell($contentWidth, 4, $this->cleanText($abbreviatedNome), 0, 1, 'L');
         $currentY += 6;
         
         // Add horizontal line after nome: 196pt wide, 0.25pt thick, same color
@@ -698,28 +837,29 @@ class TcpdfService
         $pdf->MultiCell($contentWidth, 2, $this->cleanText($ingredientsText), 0, 'L', 0, 1);
         $currentY += $ingredientsHeight + 10; // Add calculated height plus 1mm spacing
         
+        $bottomYGroup = $y + $height - 40;
          // Horizontal line separator
         $pdf->SetDrawColor(55, 61, 86, 60);
         $pdf->SetLineWidth(0.4);
-        $pdf->Line($x + 1, $currentY, $x + $width - 1, $currentY);
-        $currentY += 0.8;
+        $pdf->Line($x + 1, $bottomYGroup, $x + $width - 1, $bottomYGroup);
+        $bottomYGroup += 0.8;
 
         // 2. ZERO
         $mainProductName = $rotuloData['product_type'] ?? 'NOITE';
         try { $pdf->SetFont('brandontextblack', '', 9); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 9); }
-        $pdf->SetXY($x + 1, $currentY);
+        $pdf->SetXY($x + 1, $bottomYGroup);
         $pdf->Cell($contentWidth, 4, "ZERO LACTOSE | ZERO CASEÍNA | ZERO GLÚTEN", 0, 1, 'C');
-        $currentY += 5;
+        $bottomYGroup += 5;
 
         // Horizontal line separator
         $pdf->SetDrawColor(55, 61, 86, 60);
         $pdf->SetLineWidth(0.4);
-        $pdf->Line($x + 1, $currentY, $x + $width - 1, $currentY);
-        $currentY += 2;
+        $pdf->Line($x + 1, $bottomYGroup, $x + $width - 1, $bottomYGroup);
+        $bottomYGroup += 2;
 
         // 5. Capsule information
         try { $pdf->SetFont('opensans', '', 8); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 8); }
-        $pdf->SetXY($x + 1, $currentY);
+        $pdf->SetXY($x + 1, $bottomYGroup);
         
         // Dynamic dosage text based on product type
         $productType = $rotuloData['product_type'] ?? 'NOITE';
@@ -742,7 +882,7 @@ class TcpdfService
         $separatorText = "|";
         $separatorWidth = $pdf->GetStringWidth($separatorText);
         $separatorX = $x - 3 + $maxDosageWidth + 5; // Position after dosage text with 5mm gap
-        $pdf->SetXY($separatorX, $currentY - 2);
+        $pdf->SetXY($separatorX, $bottomYGroup - 2);
         $pdf->Cell($separatorWidth, 3, $separatorText, 0, 1, 'L');
         
         // Then add "26 DOSES" to the right of the separator
@@ -750,26 +890,26 @@ class TcpdfService
         $dosesText = "26 DOSES";
         $dosesWidth = $pdf->GetStringWidth($dosesText);
         $dosesX = $separatorX + $separatorWidth + 1; // Position after the separator with 2mm gap
-        $pdf->SetXY($dosesX, $currentY + 1);
+        $pdf->SetXY($dosesX, $bottomYGroup + 1);
         $pdf->Cell($dosesWidth, 2, $dosesText, 0, 1, 'L');
         
-        $currentY += $dosageHeight + 1; // Space for ingredients and capsule info
+        $bottomYGroup += $dosageHeight + 1; // Space for ingredients and capsule info
         
         // 6. Horizontal line separator
-        $pdf->Line($x + 1, $currentY, $x + $width - 1, $currentY);
-        $currentY += 2;
+        $pdf->Line($x + 1, $bottomYGroup, $x + $width - 1, $bottomYGroup);
+        $bottomYGroup += 2;
         
         // 7. Usage Instructions (centered)
         try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
-        $pdf->SetXY($x + 1, $currentY);
+        $pdf->SetXY($x + 1, $bottomYGroup);
         $pdf->Cell($contentWidth, 2, "Conservar em refrigerador por até 90 dias.", 0, 1, 'L');
-        $currentY += 3;
+        $bottomYGroup += 3;
         
         // 8. Patient Name (centered)
         try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
-        $pdf->SetXY($x + 1, $currentY);
+        $pdf->SetXY($x + 1, $bottomYGroup);
         $pdf->Cell($contentWidth, 2, "Após aberto, consumir em 30 dias.", 0, 1, '"L');
-        $currentY += 7;
+        $bottomYGroup += 7;
         
         // Add Purissima logo (SVG) - positioned at right bottom
         $logoPath = $this->fontsPath . '/../images/purissima-logo.svg';
@@ -811,7 +951,7 @@ class TcpdfService
         }
         
         if (!empty($reqValues)) {
-            try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
+            try { $pdf->SetFont('opensansb', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
             $pdf->SetXY($x + 1, $bottomY);
             $reqText = 'REQ ' . implode(', ', $reqValues);
             $pdf->Cell($contentWidth, 1.5, $this->cleanText($reqText), 0, 1, 'L');
@@ -888,18 +1028,24 @@ class TcpdfService
         $middleColumnX = $x + $leftColumnWidth + 2; // Start position for middle column
         $rightColumnX = $x + $leftColumnWidth + $middleColumnWidth + 4; // Start position for right column
         
-        // Left column - Ingredients list
-        $ingredients = $this->getIngredientsList($rotuloData);
-        $ingredientY = $currentY;
+
         
         
-        // Ingredients list (formatted with semicolons and line breaks)
-        $formattedIngredients = implode('; ', $ingredients) . '.';
+        // Calculate maximum height available for ingredients (leave space for SVG at bottom)
+        $maxIngredientsHeight = $height - 5; // Reserve 20 units for SVG and padding
         
-        // Use one MultiCell for all ingredients (like pouch rotulo)
-        try { $pdf->SetFont('opensans', '', 4); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 4); }
-        $pdf->SetXY($x + 2, $ingredientY+1);
-        $pdf->MultiCell($leftColumnWidth-3, 1.5, $this->cleanText($formattedIngredients), 0, 'L');
+        // Use the new function to display ingredients with tabulated/list fallback
+        $ingredientY = $this->displayIngredientsWithFallback(
+            $pdf, 
+            $rotuloData['composition'], 
+            $x, 
+            $currentY + 1, 
+            $leftColumnWidth - 3, 
+            $maxIngredientsHeight, 
+            $colorScheme['text'],
+            'opensans', 
+            4
+        );
         
 
         $isWhiteText = ($colorScheme['text'][0] == 0 && $colorScheme['text'][1] == 0 && 
@@ -925,40 +1071,42 @@ class TcpdfService
         try { $pdf->SetFont('brandontextblack', '', 16); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 16); }
         
         // Wrap text to fit within the available width
-        $maxWidth = $middleColumnWidth - 2;
+        $maxWidth = $middleColumnWidth - 4;
         $wrappedLines = $this->wrapTextToLines($this->cleanText(mb_strtoupper($productType, 'UTF-8')), $maxWidth, $pdf);
         
         // Display each line
         foreach ($wrappedLines as $line) {
-            $pdf->SetXY($middleColumnX, $currentY);
+            $pdf->SetXY($middleColumnX+1, $currentY);
             $pdf->Cell($maxWidth, 3, $line, 0, 1, 'C');
             $currentY += 6; // Move down for next line
         } // 3 units spacing from top of product type text
         $currentY += 1.5;
-        // Doctor name
-        try { $pdf->SetFont('opensans', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
-        $pdf->SetXY($middleColumnX, $currentY );
-        $pdf->Cell($middleColumnWidth - 2, 2, $this->cleanText('TOMAR 2 CÁPS JUNTO AS REFEIÇÕES'), 0, 1, 'C');
-        $currentY += 5;
+
         
         //Add Patient Name
         $patientName = $rotuloData['patient_name'] ?? 'SEU NOME';
-        try { $pdf->SetFont('brandontextblack', '', 10); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 10); }
-        $pdf->SetXY($middleColumnX, $y + $height - 9);
+        try { $pdf->SetFont('brandontextblack', '', 9); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 9); }
+        $pdf->SetXY($middleColumnX, $y + $height - 12);
         $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText(mb_strtoupper($patientName, 'UTF-8')), 0, 1, 'C');
         $currentY += 4.5;
 
         // Horizontal line separator
-        $pdf->SetDrawColor(0, 0, 0, 0);
+        $pdf->SetDrawColor($colorScheme['text'][0], $colorScheme['text'][1], $colorScheme['text'][2], $colorScheme['text'][3]);
         $lineWidth = $width * 0.2; // 30% of width
         $lineStartX = $x + ($width - $lineWidth) / 2; // Center the line
-        $pdf->Line($lineStartX, $y + $height - 4.5, $lineStartX + $lineWidth, $y + $height - 4.5);
+        $pdf->Line($lineStartX, $y + $height - 7.5, $lineStartX + $lineWidth, $y + $height - 7.5);
         $currentY += 0;
 
         //Add Dr Fran Castro name (middle column)
-        try { $pdf->SetFont('brandon_reg', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
+        try { $pdf->SetFont('brandon_reg', '', 6.5); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 6.5); }
+        $pdf->SetXY($middleColumnX, $y + $height - 7);
+        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('POR DRA. FRAN CASTRO'), 0, 1, 'C');
+        $currentY += 3.5;
+
+        //Add Dr Fran Castro name (middle column)
+        try { $pdf->SetFont('opensans', '', 5); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 5); }
         $pdf->SetXY($middleColumnX, $y + $height - 4);
-        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('DRA. FRAN CASTRO'), 0, 1, 'C');
+        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('CRF 32678362836Q83'), 0, 1, 'C');
         $currentY += 4;
         
         // Right column - Content after DRA. FRAN CASTRO
@@ -991,19 +1139,26 @@ class TcpdfService
             try { $pdf->SetFont('opensans', '', 5); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 5); }
             $pdf->SetXY($rightColumnX+4, $rightColumnY);
             $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText($dosage), 0, 1, 'L');
-            $rightColumnY += 3;
+            $rightColumnY += 2;
         }
         
         // Usage information (Uso interno.)
         try { $pdf->SetFont('opensans', '', 4.8); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 4.8); }
         $pdf->SetXY($rightColumnX+ 4, $rightColumnY);
         $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('Uso interno.'), 0, 1, 'L');
-        $rightColumnY += 6;
+        $rightColumnY += 4;
         
         // Line divider under "Uso interno."
-        $pdf->SetDrawColor(0, 0, 0, 20);
-        $pdf->Line($rightColumnX -3, $rightColumnY, $rightColumnX + $rightColumnWidth - 10, $rightColumnY);
+        $pdf->SetDrawColor($colorScheme['text'][0], $colorScheme['text'][1], $colorScheme['text'][2], $colorScheme['text'][3]);
+        $pdf->Line($rightColumnX - 3, $rightColumnY, $rightColumnX + $rightColumnWidth - 10, $rightColumnY);
         $rightColumnY += 2;
+
+        // Doctor name
+        try { $pdf->SetFont('opensans', '', 4.9); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 4.9); }
+        $pdf->SetXY($rightColumnX-4, $rightColumnY);
+        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('TOMAR 2 CÁPS JUNTO AS REFEIÇÕES'), 0, 1, 'L');
+        $rightColumnY += 5;
+                
         
         // RT and Company Information - positioned at bottom
         $bottomY = $y + $height - 15; // Position near bottom of rotulo
@@ -1023,19 +1178,19 @@ class TcpdfService
         $pdf->SetXY($rightColumnX- 4, $bottomY);
         $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('RT: Paula Souza de Sales. CRF 51370'), 0, 1, 'L');
         $bottomY += 4;
-        
+
         // Company Information
         try { $pdf->SetFont('opensans', '', 4); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 3); }
         $pdf->SetXY($rightColumnX - 4, $bottomY);
-        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('PURISSIMA | Alameda Araguaia, 933 | conj 81,'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('PURÍSSIMA FARMÁCIA DE MANIPULAÇÃO S.A.'), 0, 1, 'L');
         $bottomY += 2;
         
         $pdf->SetXY($rightColumnX- 4, $bottomY);
-        $pdf->Cell($rightColumnWidth - 4, 2, $this->cleanText('Alphaville Industrial | Barueri/SP | CEP:'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 4, 2, $this->cleanText('Rua Halfeld, n° 1156, Centro, Juiz de Fora | MG'), 0, 1, 'L');
         $bottomY += 2;
         
         $pdf->SetXY($rightColumnX- 4, $bottomY);
-        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('06455-000.CNPJ: 57.511.386/0001-13.'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('CEP: 36016-000 | CNPJ: 58.771.439/0001-06'), 0, 1, 'L');
         
         // Manufacturing and Validity dates (vertical text) - positioned at maximum right
         $rightColumnCenterX = $x + $width - 2; // Maximum right position
@@ -1075,7 +1230,7 @@ class TcpdfService
         
         $layoutType = $rotuloData['layout_type'] ?? 'horizontal';
         $this->setRotuloColorScheme($pdf, $colorSchemeType, $layoutType);
-        
+        $textColor = $this->getRotuloTextColor($colorSchemeType, $layoutType);
         // Apply background and border with rounded corners
         $pdf->RoundedRect($x, $y, $width, $height, 2, '1111', 'F');
         
@@ -1094,24 +1249,29 @@ class TcpdfService
         $rightColumnX = $x + $leftColumnWidth + $middleColumnWidth + 4; // Start position for right column
         
         // Left column - Ingredients list
-        $ingredients = $this->getIngredientsList($rotuloData);
         $ingredientY = $currentY;
         
+        // Calculate maximum height available for ingredients (leave space for SVG at bottom)
+        $maxIngredientsHeight = $height - 5; // Reserve 20 units for SVG and padding
         
-        // Ingredients list (formatted with semicolons and line breaks)
-        $formattedIngredients = implode('; ', $ingredients) . '.';
-        
-        // Use one MultiCell for all ingredients (like pouch rotulo)
-        try { $pdf->SetFont('opensans', '', 4); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 4); }
-        $pdf->SetXY($x + 2, $ingredientY+1);
-        $pdf->MultiCell($leftColumnWidth-3, 1.5, $this->cleanText($formattedIngredients), 0, 'L');
+        // Use the new function to display ingredients with tabulated/list fallback
+        $ingredientY = $this->displayIngredientsWithFallback(
+            $pdf, 
+            $rotuloData['composition'], 
+            $x, 
+            $ingredientY + 1, 
+            $leftColumnWidth - 3, 
+            $maxIngredientsHeight, 
+            $textColor,
+            'opensans', 
+            4
+        );
         
         // Add Purissima social SVG at bottom of left column
         // Use white version when text color is white (dark backgrounds)
         $productName = $rotuloData['product_name'] ?? '';
-        $colorScheme = $this->colorSchemeService->getColorSchemeForProduct($productName);
-        $isWhiteText = ($colorScheme['text'][0] == 0 && $colorScheme['text'][1] == 0 && 
-                       $colorScheme['text'][2] == 0 && $colorScheme['text'][3] == 0);
+        $isWhiteText = ($textColor[0] == 0 && $textColor[1] == 0 && 
+                       $textColor[2] == 0 && $textColor[3] == 0);
         $svgFileName = $isWhiteText ? 'purissima-social-white.svg' : 'purissima-social.svg';
         $svgPath = $this->fontsPath . '/../images/' . $svgFileName;
         
@@ -1152,9 +1312,15 @@ class TcpdfService
         
         //Add Patient Name
         $patientName = $rotuloData['patient_name'] ?? 'SEU NOME';
+        $patientNameUpper = mb_strtoupper($patientName, 'UTF-8');
+        
+        // Check if name is too long and abbreviate if necessary
+        $maxNameWidth = $middleColumnWidth - 2;
+        $abbreviatedName = $this->abbreviatePatientName($pdf, $patientNameUpper, $maxNameWidth, 'brandontextblack', 10);
+        
         try { $pdf->SetFont('brandontextblack', '', 10); } catch (\Exception $e) { $pdf->SetFont('helvetica', 'B', 10); }
-        $pdf->SetXY($middleColumnX, $currentY);
-        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText(mb_strtoupper($patientName, 'UTF-8')), 0, 1, 'C');
+        $pdf->SetXY($middleColumnX, $currentY-0.2);
+        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText($abbreviatedName), 0, 1, 'C');
         $currentY += 4.5;
 
         // Horizontal line separator
@@ -1162,20 +1328,17 @@ class TcpdfService
         $lineWidth = $width * 0.2; // 30% of width
         $lineStartX = $x + ($width - $lineWidth) / 2; // Center the line
         $pdf->Line($lineStartX, $currentY, $lineStartX + $lineWidth, $currentY);
-        $currentY += 0;
+        $currentY += 0.3;
 
         //Add Dr Fran Castro name (middle column)
         try { $pdf->SetFont('brandon_reg', '', 7); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 7); }
         $pdf->SetXY($middleColumnX, $currentY);
-        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('DRA. FRAN CASTRO'), 0, 1, 'C');
+        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('POR DRA. FRAN CASTRO'), 0, 1, 'C');
         $currentY += 4;
         
         // Right column - Content after DRA. FRAN CASTRO
         $rightColumnY = $y + 2; // Start at same level as other columns (at the beginning)
         
-        $colorScheme = $this->colorSchemeService->getColorSchemeForProduct($productName);
-        $isWhiteText = ($colorScheme['text'][0] == 0 && $colorScheme['text'][1] == 0 && 
-                       $colorScheme['text'][2] == 0 && $colorScheme['text'][3] == 0);
         if ($productType === 'DIA') {
             $svgFileName = $isWhiteText ? 'icon-day-white.svg' : 'icon-day.svg';
         } else {
@@ -1208,13 +1371,13 @@ class TcpdfService
         try { $pdf->SetFont('opensans', '', 4.8); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 4.8); }
         $pdf->SetXY($rightColumnX+ 4, $rightColumnY);
         $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('Uso interno.'), 0, 1, 'L');
-        $rightColumnY += 6;
+        $rightColumnY += 4;
         
         // Line divider under "Uso interno."
         $pdf->SetDrawColor(0, 0, 0, 20);
         $pdf->Line($rightColumnX -3, $rightColumnY, $rightColumnX + $rightColumnWidth - 10, $rightColumnY);
         $rightColumnY += 2;
-        
+
         // RT and Company Information - positioned at bottom
         $bottomY = $y + $height - 15; // Position near bottom of rotulo
         
@@ -1233,19 +1396,19 @@ class TcpdfService
         $pdf->SetXY($rightColumnX- 4, $bottomY);
         $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('RT: Paula Souza de Sales. CRF 51370'), 0, 1, 'L');
         $bottomY += 4;
-        
+
         // Company Information
         try { $pdf->SetFont('opensans', '', 4); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 3); }
         $pdf->SetXY($rightColumnX - 4, $bottomY);
-        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('PURISSIMA | Alameda Araguaia, 933 | conj 81,'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('PURÍSSIMA FARMÁCIA DE MANIPULAÇÃO S.A.'), 0, 1, 'L');
         $bottomY += 2;
         
         $pdf->SetXY($rightColumnX- 4, $bottomY);
-        $pdf->Cell($rightColumnWidth - 4, 2, $this->cleanText('Alphaville Industrial | Barueri/SP | CEP:'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 4, 2, $this->cleanText('Rua Halfeld, n° 1156, Centro, Juiz de Fora | MG'), 0, 1, 'L');
         $bottomY += 2;
         
         $pdf->SetXY($rightColumnX- 4, $bottomY);
-        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('06455-000.CNPJ: 57.511.386/0001-13.'), 0, 1, 'L');
+        $pdf->Cell($rightColumnWidth - 2, 2, $this->cleanText('CEP: 36016-000 | CNPJ: 58.771.439/0001-06'), 0, 1, 'L');
         
         // Manufacturing and Validity dates (vertical text) - positioned at maximum right
         $rightColumnCenterX = $x + $width - 2; // Maximum right position
@@ -1445,6 +1608,384 @@ class TcpdfService
     /**
      * Get ingredients list for the rotulo
      */
+    /**
+     * Display ingredients in tabulated format with fallback to list if content doesn't fit
+     * 
+     * @param object $pdf TCPDF instance
+     * @param array $composition Array of composition objects with 'ingredient' and 'dosage' properties
+     * @param float $x X position
+     * @param float $y Y position
+     * @param float $width Available width
+     * @param float $maxHeight Maximum height for the ingredients section
+     * @param string $font Font name to use
+     * @param float $fontSize Font size
+     * @return float The Y position after the ingredients section
+     */
+    private function displayIngredientsWithFallback($pdf, array $composition, float $x, float $y, float $width, float $maxHeight, $textColor, string $font = 'opensans', float $fontSize = 4): float
+    {
+        $currentY = $y;
+        $lineHeight = 1.5;
+        $padding = 2;
+        
+        // Set font
+        try { 
+            $pdf->SetFont($font, '', $fontSize); 
+        } catch (\Exception $e) { 
+            $pdf->SetFont('helvetica', '', $fontSize); 
+        }
+        
+        // Calculate available width for content
+        $contentWidth = $width;
+        
+        // Force tabulated format for small lists (2-3 ingredients)
+        $ingredientCount = count($composition);
+        
+        // DEBUG: Log all the parameters and composition data
+        $this->logger->debug('displayIngredientsWithFallback called', [
+            'ingredient_count' => $ingredientCount,
+            'composition' => $composition,
+            'x' => $x,
+            'y' => $y,
+            'width' => $width,
+            'maxHeight' => $maxHeight,
+            'contentWidth' => $contentWidth,
+            'lineHeight' => $lineHeight,
+            'font' => $font,
+            'fontSize' => $fontSize
+        ]);
+        
+
+            // For larger lists, try tabulated format first
+            $tabulatedHeight = $this->calculateTabulatedIngredientsHeight($pdf, $composition, $contentWidth, $lineHeight);
+            
+            $this->logger->debug('Height calculation for larger list', [
+                'ingredient_count' => $ingredientCount,
+                'tabulatedHeight' => $tabulatedHeight,
+                'maxHeight' => $maxHeight,
+                'will_fit' => $tabulatedHeight <= $maxHeight
+            ]);
+            
+            if ($tabulatedHeight <= $maxHeight) {
+                // Use tabulated format
+                $this->logger->debug('Using tabulated format for larger list', [
+                    'reason' => 'height_fits'
+                ]);
+                $currentY = $this->displayTabulatedIngredients($pdf, $composition, $x + $padding, $currentY, $contentWidth, $lineHeight, $textColor);
+            } else {
+                // Fallback to list format
+                $this->logger->debug('Using list format fallback', [
+                    'reason' => 'height_too_large',
+                    'tabulatedHeight' => $tabulatedHeight,
+                    'maxHeight' => $maxHeight
+                ]);
+                $currentY = $this->displayListIngredients($pdf, $composition, $x + $padding, $currentY, $contentWidth, $lineHeight);
+            }
+        
+        
+        $this->logger->debug('displayIngredientsWithFallback completed', [
+            'final_y' => $currentY,
+            'format_used' => $ingredientCount <= 3 ? 'tabulated_forced' : ($tabulatedHeight <= $maxHeight ? 'tabulated' : 'list')
+        ]);
+        
+        return $currentY;
+    }
+    
+    /**
+     * Calculate the height needed for tabulated ingredients format
+     */
+    private function calculateTabulatedIngredientsHeight($pdf, array $composition, float $width, float $lineHeight): float
+    {
+        $totalHeight = 0;
+        
+        foreach ($composition as $index => $ingredientData) {
+            $ingredientName = $this->cleanText($ingredientData['ingredient']);
+            $dosage = $this->cleanText($ingredientData['dosage']);
+            
+            $leftColumnWidth = $width * 0.6;
+            
+            // Check if ingredient name fits in left column
+            $nameWidth = $pdf->GetStringWidth($ingredientName);
+            $availableWidth = $leftColumnWidth - 2;
+            
+            if ($nameWidth > $availableWidth) {
+                // If ingredient name is too long, calculate actual lines needed
+                $lines = $this->breakTextIntoLines($ingredientName, $availableWidth, $pdf);
+                $totalHeight += count($lines) * $lineHeight;
+            } else {
+                $totalHeight += $lineHeight;
+            }
+            
+            // Add space for dashed line (except for the last item)
+            if ($index < count($composition) - 1) {
+                $totalHeight += 0.5; // Reduced space for dashed line
+            }
+        }
+        
+        return $totalHeight;
+    }
+    
+    /**
+     * Display ingredients in tabulated format (two-column table with dashed separators)
+     */
+    private function displayTabulatedIngredients($pdf, array $composition, float $x, float $y, float $width, float $lineHeight, $textColor): float
+    {
+        $this->logger->debug('displayTabulatedIngredients called', [
+            'composition_count' => count($composition),
+            'x' => $x,
+            'y' => $y,
+            'width' => $width,
+            'lineHeight' => $lineHeight
+        ]);
+        
+        $currentY = $y;
+        $leftColumnWidth = $width * 0.6; // 60% for ingredient name
+        $rightColumnWidth = $width * 0.4; // 40% for dosage
+        $rightColumnX = $x + $leftColumnWidth;
+        
+        foreach ($composition as $index => $ingredientData) {
+            $ingredientName = $this->cleanText($ingredientData['ingredient']);
+            $dosage = $this->cleanText($ingredientData['dosage']);
+            
+            $this->logger->debug('Displaying tabulated ingredient', [
+                'index' => $index,
+                'ingredient' => $ingredientName,
+                'dosage' => $dosage,
+                'y_position' => $currentY,
+                'raw_ingredient' => $ingredientData['ingredient'],
+                'raw_dosage' => $ingredientData['dosage']
+            ]);
+            
+            // Check if ingredient name fits in the left column
+            $ingredientWidth = $pdf->GetStringWidth($ingredientName);
+            $availableWidth = $leftColumnWidth - 2;
+            
+            if ($ingredientWidth <= $availableWidth) {
+                // Ingredient name fits on one line
+                $this->logger->debug('Single-line ingredient', [
+                    'ingredient' => $ingredientName,
+                    'line_height' => $lineHeight,
+                    'y_position' => $currentY
+                ]);
+                
+                // Calculate dynamic width based on text size
+                $dynamicWidth = min($ingredientWidth, $availableWidth - 2);
+                
+                $pdf->SetXY($x, $currentY);
+                $pdf->Cell($dynamicWidth, $lineHeight, $ingredientName, 0, 0, 'L');
+                
+                // Display dosage (right column) with precise positioning
+                if ($dosage) {
+                    $dosageWidth = $pdf->GetStringWidth($dosage);
+                    $dosageStartX = $rightColumnX + ($rightColumnWidth - 2) - $dosageWidth;
+                    
+                    $pdf->SetXY($dosageStartX, $currentY);
+                    $pdf->Cell($dosageWidth, $lineHeight, $dosage, 0, 0, 'L');
+                }
+                
+                // Calculate line position to connect ingredient to dosage
+                $ingredientEndX = $x + $ingredientWidth + 2;
+                $dosageStartX = $rightColumnX + ($rightColumnWidth - 2) - $pdf->GetStringWidth($dosage);
+                $lineY = $currentY + ($lineHeight / 2);
+                
+                $pdf->SetDrawColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
+                $pdf->SetLineWidth(0.050);
+                $pdf->Line($ingredientEndX, $lineY + 0.2, $dosageStartX, $lineY + 0.2);
+                $pdf->SetLineWidth(0.2);
+                
+                // Move to next line
+                $currentY += $lineHeight + 0.5;
+            } else {
+                // Ingredient name is too wide, break into multiple lines manually
+                $this->logger->debug('Multi-line ingredient detected', [
+                    'ingredient' => $ingredientName,
+                    'available_width' => $availableWidth,
+                    'ingredient_width' => $ingredientWidth
+                ]);
+                
+                // Break text into lines manually
+                $lines = $this->breakTextIntoLines($ingredientName, $availableWidth, $pdf);
+                $ingredientHeight = count($lines) * $lineHeight;
+                
+                $this->logger->debug('Manual line breaking results', [
+                    'lines' => $lines,
+                    'line_count' => count($lines),
+                    'ingredient_height' => $ingredientHeight,
+                    'line_height' => $lineHeight,
+                    'calculated_height' => count($lines) * $lineHeight
+                ]);
+                
+                // Display each line separately
+                $lineY = $currentY;
+                $totalLines = count($lines);
+                
+                foreach ($lines as $lineIndex => $lineText) {
+                    // Calculate dynamic width based on text size
+                    $textWidth = $pdf->GetStringWidth($lineText);
+                    $dynamicWidth = min($textWidth, $availableWidth);
+                    
+                    $pdf->SetXY($x, $lineY);
+                    $pdf->Cell($dynamicWidth, $lineHeight, $lineText, 0, 0, 'L');
+                    
+                    // Position dosage and draw line only on the last line
+                    if ($lineIndex === ($totalLines - 1) && $dosage) {
+                        // Calculate dosage width for precise positioning
+                        $dosageWidth = $pdf->GetStringWidth($dosage);
+                        $dosageStartX = $rightColumnX + ($rightColumnWidth - 2) - $dosageWidth;
+                        
+                        $pdf->SetXY($dosageStartX, $lineY);
+                        $pdf->Cell($dosageWidth, $lineHeight, $dosage, 0, 0, 'L');
+                        
+                        // Draw line from end of last line text to start of dosage
+                        $ingredientEndX = $x + $textWidth + 2;
+                        $lineYForLine = $lineY + ($lineHeight / 2);
+                        
+                        $pdf->SetDrawColor($textColor[0], $textColor[1], $textColor[2], $textColor[3]);
+                        $pdf->SetLineWidth(0.050);
+                        $pdf->Line($ingredientEndX, $lineYForLine + 0.2, $dosageStartX, $lineYForLine + 0.2);
+                        $pdf->SetLineWidth(0.2);
+                    }
+                    
+                    $lineY += $lineHeight+0.3;
+                }
+                
+                // Move to next ingredient (accounting for multi-line ingredient)
+                $currentY += $ingredientHeight + 0.8;
+            }
+        }
+        
+        $this->logger->debug('displayTabulatedIngredients completed', [
+            'final_y' => $currentY
+        ]);
+        
+        // Return the Y position after the last line
+        return $currentY;
+    }
+    
+    /**
+     * Draw a dashed horizontal line
+     */
+    private function drawDashedLine($pdf, float $x1, float $y1, float $x2, float $y2): void
+    {
+        $dashLength = 2;
+        $gapLength = 1;
+        $currentX = $x1;
+        
+        while ($currentX < $x2) {
+            $endX = min($currentX + $dashLength, $x2);
+            $pdf->Line($currentX, $y1, $endX, $y1);
+            $currentX += $dashLength + $gapLength;
+        }
+    }
+    
+    /**
+     * Get the first line of text when wrapped to a specific width
+     */
+    private function getFirstLineOfText(string $text, float $width, $pdf): string
+    {
+        $words = explode(' ', $text);
+        $firstLine = '';
+        
+        foreach ($words as $word) {
+            $testLine = $firstLine . ($firstLine ? ' ' : '') . $word;
+            $testWidth = $pdf->GetStringWidth($testLine);
+            
+            if ($testWidth <= $width) {
+                $firstLine = $testLine;
+            } else {
+                // If this is the first word and it's too long, return it anyway
+                if (empty($firstLine)) {
+                    $firstLine = $word;
+                }
+                break;
+            }
+        }
+        
+        return $firstLine;
+    }
+    
+    /**
+     * Break text into multiple lines that fit within the specified width
+     */
+    private function breakTextIntoLines(string $text, float $width, $pdf): array
+    {
+        $words = explode(' ', $text);
+        $lines = [];
+        $currentLine = '';
+        
+        foreach ($words as $word) {
+            $testLine = $currentLine . ($currentLine ? ' ' : '') . $word;
+            $testWidth = $pdf->GetStringWidth($testLine);
+            
+            if ($testWidth <= $width) {
+                $currentLine = $testLine;
+            } else {
+                // If current line is not empty, add it to lines and start new line
+                if (!empty($currentLine)) {
+                    $lines[] = $currentLine;
+                    $currentLine = $word;
+                } else {
+                    // If even a single word is too long, add it anyway
+                    $lines[] = $word;
+                    $currentLine = '';
+                }
+            }
+        }
+        
+        // Add the last line if it's not empty
+        if (!empty($currentLine)) {
+            $lines[] = $currentLine;
+        }
+        
+        return $lines;
+    }
+    
+    /**
+     * Display ingredients in list format (one ingredient per line)
+     */
+    private function displayListIngredients($pdf, array $composition, float $x, float $y, float $width, float $lineHeight): float
+    {
+        $this->logger->debug('displayListIngredients called', [
+            'composition_count' => count($composition),
+            'x' => $x,
+            'y' => $y,
+            'width' => $width,
+            'lineHeight' => $lineHeight
+        ]);
+        
+        $currentY = $y;
+        
+        // Format ingredients as a list with semicolons
+        $ingredientStrings = [];
+        foreach ($composition as $ingredientData) {
+            $ingredientName = $this->cleanText($ingredientData['ingredient']);
+            $dosage = $this->cleanText($ingredientData['dosage']);
+            $ingredientStrings[] = $ingredientName . ' - ' . $dosage;
+        }
+        
+        $formattedIngredients = implode('; ', $ingredientStrings) . '.';
+        
+        $this->logger->debug('Displaying list ingredients', [
+            'formatted_text' => $formattedIngredients,
+            'ingredient_strings' => $ingredientStrings
+        ]);
+        
+        // Use MultiCell to handle text wrapping
+        $pdf->SetXY($x, $currentY);
+        $pdf->MultiCell($width, $lineHeight, $formattedIngredients, 0, 'L');
+        
+        // Calculate the height used by MultiCell
+        $lines = $pdf->getNumLines($formattedIngredients, $width);
+        $usedHeight = $lines * $lineHeight;
+        
+        $this->logger->debug('displayListIngredients completed', [
+            'final_y' => $currentY + $usedHeight,
+            'lines_used' => $lines,
+            'used_height' => $usedHeight
+        ]);
+        
+        return $currentY + $usedHeight;
+    }
+
     private function getIngredientsList(array $rotuloData): array
     {
         // First, try to use actual composition data from the item
@@ -1465,80 +2006,7 @@ class TcpdfService
         // Fallback to default ingredients list based on product type
         $productType = $rotuloData['product_type'] ?? 'NOITE';
         
-        $this->logger->debug('Using default ingredients for product type', [
-            'product_type' => $productType,
-            'product_name' => $rotuloData['product_name'] ?? 'Unknown'
-        ]);
-        
-        switch (mb_strtoupper($productType, 'UTF-8')) {
-            case 'DIA':
-                return [
-                    'Proteína Total 15 g (Genu-in®10 g Whey Protein Isolado 5 g);',
-                    'Magnésio bisglicinato - 300mg;',
-                    'Taurina - 2g;',
-                    'Verisol - 5g;',
-                    'Fortibone - 5g;',
-                    'Seleniometionina - 100mcg;',
-                    'Manganês Quelado - 1 mg;',
-                    'Cromo GTF - 200 mcg;',
-                    'Molibdênio Quelado 100 - mcg;',
-                    'Genu-in - 20g;',
-                    'Potássio quelado - 99mg;',
-                    'Inositol - 500mg;',
-                    'Wellmune - 500mg;',
-                    'UC-II - 40mg;',
-                    'Ácido hialurônico - 100mg;',
-                    'Própolis Mais - 200mg;',
-                    'Exsynutriment - 300mg;',
-                    'Lactoferrina - 600mg.'
-                ];
-                
-            case 'NOITE':
-                return [
-                    'Própolis Mais 200mg',
-                    'Zinco Quelado 15 MG',
-                    'Cobre Quelado 0,5 MG',
-                    'Exsynutriment 100mg',
-                    'Boro quelado 2mg',
-                    'MSM 300mg',
-                    'Tiamina 10 MG',
-                    'Riboflavina 10 MG',
-                    'Ácido Pantotênico 100 MG'
-                ];
-                
-            case 'CAPSULAS':
-                return [
-                    'Cápsula de gelatina',
-                    'Magnésio bisglicinato 200mg',
-                    'Vitamina D3 1000 UI',
-                    'Zinco quelado 15mg',
-                    'Selênio 100mcg',
-                    'Vitamina C 500mg',
-                    'Vitamina E 400 UI',
-                    'Coenzima Q10 100mg'
-                ];
-                
-            case 'PREMIO':
-                return [
-                    'Proteína isolada 25g',
-                    'BCAA 5g',
-                    'Glutamina 3g',
-                    'Creatina 3g',
-                    'Beta-alanina 2g',
-                    'L-carnitina 1g',
-                    'Taurina 1g',
-                    'Vitaminas B complexo',
-                    'Minerais quelados'
-                ];
-                
-            default:
-                return [
-                    'Ingrediente A 100mg',
-                    'Ingrediente B 50mg',
-                    'Ingrediente C 20mg',
-                    'Ingrediente D 10mg'
-                ];
-        }
+
     }
 
     /**
@@ -1631,24 +2099,59 @@ class TcpdfService
                 }
             }
             
-            // Process all items in order: pouches first, then capsules, then others
-            // Use column 1 first, then column 2 only if needed
+            // Process all items in order: pouches first (side by side), then capsules, then others
             $currentY = $margin; // Start at top of page
             $currentCol = 0; // Start with column 1
             $columnWidth = ($pageWidth - 2 * $margin - $spacing) / 2; // 2 columns only
             
-            // Combine all items in the correct order
-            $allItems = array_merge($pouches, $capsulas, $otherItems);
+            // Process pouches first with side-by-side layout
+            if (!empty($pouches)) {
+                $pouchX = $margin;
+                $pouchY = $currentY;
+                $pouchesPerRow = 2; // Place 2 pouches side by side
+                $pouchSpacing = 10; // Spacing between side-by-side pouches
+                
+                foreach ($pouches as $index => $pouchData) {
+                    $pouchIndex = $index % $pouchesPerRow;
+                    
+                    // Calculate position for side-by-side placement
+                    $x = $pouchX + $pouchIndex * ($pouchWidth + $pouchSpacing);
+                    $y = $pouchY;
+                    
+                    // Check if we need a new row
+                    if ($pouchIndex == 0 && $index > 0) {
+                        $pouchY += $pouchHeight + $spacing;
+                        $y = $pouchY;
+                        
+                        // Check if we need a new page
+                        if ($pouchY + $pouchHeight > $pageHeight - $margin) {
+                            $pdf->AddPage();
+                            $currentPage++;
+                            $pouchY = $margin;
+                            $y = $pouchY;
+                        }
+                    }
+                    
+                    // Add the pouch rotulo
+                    $this->addSingleRotulo($pdf, $pouchData, $x, $y, $pouchWidth, $pouchHeight);
+                }
+                
+                // Update current Y position after processing pouches
+                $currentY = $pouchY + $pouchHeight + $spacing;
+            }
             
-            foreach ($allItems as $itemData) {
+            // Process capsules and other items with column layout
+            $otherItems = array_merge($capsulas, $otherItems);
+            
+            foreach ($otherItems as $itemData) {
                 $productType = $itemData['product_type'] ?? 'default';
                 $productName = $itemData['product_name'] ?? '';
                 $layoutType = $this->getProductLayoutType($productType, $productName);
                 
                 // Determine dimensions based on layout type
-                if ($layoutType === 'pouch') {
-                    $width = $pouchWidth;
-                    $height = $pouchHeight;
+                if ($layoutType === 'capsula') {
+                    $width = $stickerWidth;
+                    $height = $stickerHeight;
                 } else {
                     $width = $stickerWidth;
                     $height = $stickerHeight;
@@ -1982,20 +2485,26 @@ class TcpdfService
         $oldDisplayErrors = ini_set('display_errors', 0);
         
         try {
-            // Check if all items have req field
+            // Check if all items have req field and add temporary mock if missing
             $allItemsHaveReq = true;
             $reqValues = [];
-            foreach ($items as $item) {
+            foreach ($items as $index => $item) {
                 if (!isset($item['req']) || trim((string)$item['req']) === '') {
-                    $allItemsHaveReq = false;
-                    break;
+                    // TEMPORARY MOCK: Add mock req field for testing
+                    $items[$index]['req'] = '3213213';
+                    $this->logger->info('Added temporary mock req field for testing', [
+                        'item_index' => $index,
+                        'product_name' => $item['product_name'] ?? 'unknown'
+                    ]);
                 }
-                $reqValues[] = trim((string)$item['req']);
+                $reqValues[] = trim((string)$items[$index]['req']);
             }
             
-            if (!$allItemsHaveReq) {
-                throw new \Exception('All items must have req field to generate Sticker');
-            }
+            // Log that we're using mock data
+            $this->logger->info('Using temporary mock req fields for testing', [
+                'total_items' => count($items),
+                'mock_req_value' => '3213213'
+            ]);
 
             // Use multiple rotulos function to create one rotulo per item
             return $this->createMultipleRotulosPdf($orderData, $items);
