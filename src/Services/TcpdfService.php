@@ -258,6 +258,15 @@ class TcpdfService
 				$this->logger->warning('Failed to load OpenSans Bold font from PHP file: ' . $e->getMessage());
 			}
 		}
+		$openSansLightPhpPath = $this->fontsPath . '/opensansl.php';
+		if (file_exists($openSansLightPhpPath)) {
+			try {
+				$pdf->AddFont('opensansl', '', $openSansLightPhpPath, true);
+				$this->logger->info('OpenSans Light font loaded successfully from opensansl.php');
+			} catch (\Exception $e) {
+				$this->logger->warning('Failed to load OpenSans Light font from PHP file: ' . $e->getMessage());
+			}
+		}
 		
 		// Add Brandon Regular font
 		$brandonRegPhpPath = $this->fontsPath . '/brandon_reg.php';
@@ -878,7 +887,7 @@ class TcpdfService
         
         // Add separator "|" between dosage text and "26 DOSES"
         // First, add the large "|" separator in the middle
-        try { $pdf->SetFont('opensans', '', 18); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 12); }
+        try { $pdf->SetFont('opensansl', '', 18); } catch (\Exception $e) { $pdf->SetFont('helvetica', '', 12); }
         $separatorText = "|";
         $separatorWidth = $pdf->GetStringWidth($separatorText);
         $separatorX = $x - 3 + $maxDosageWidth + 5; // Position after dosage text with 5mm gap
