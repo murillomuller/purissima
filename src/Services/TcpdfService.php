@@ -1100,7 +1100,7 @@ class TcpdfService
         } catch (\Exception $e) {
             $pdf->SetFont('helvetica', '', 7);
         }
-        $pdf->SetXY($x + 1, $bottomY + 9);
+        $pdf->SetXY($x + 1, $bottomY + 8);
 
         // Generate dynamic dates
         $fabDate = date('d/m/y', strtotime($rotuloData['created_at']));
@@ -2272,6 +2272,499 @@ class TcpdfService
 
         // Fallback to default ingredients list based on product type
         $productType = $rotuloData['product_type'] ?? 'NOITE';
+
+        // Return empty array as fallback
+        return [];
+    }
+
+    /**
+     * Create batch labels (rotulos em lote) with optimal space usage
+     * Optimized for printing multiple labels with minimal paper waste
+     * 
+     * @param array $itemsWithOrderData Array of items with their associated order data
+     *                                  Each item should have structure: ['item' => $item, 'order_data' => $orderData]
+     * @param array $options Configuration options for batch printing
+     * @return string Filename of the generated PDF
+     */
+    public function createBatchLabelsPdf(array $itemsWithOrderData, array $options = []): string
+    {
+        if (empty($itemsWithOrderData)) {
+            throw new \InvalidArgumentException('No items provided for batch label printing');
+        }
+
+        // Default options
+        $defaultOptions = [
+            'page_format' => 'A4', // A4, A3, A2, or custom
+            'orientation' => 'P', // P for portrait, L for landscape
+            'margin' => 5, // Page margin in mm
+            'spacing' => 2, // Spacing between labels in mm
+            'max_labels_per_page' => null, // Auto-calculate if null
+            'label_rotation' => false, // Whether to rotate labels for better fit
+            'group_by_type' => true, // Group similar label types together
+            'optimize_layout' => true, // Use smart layout optimization
+        ];
+
+        $options = array_merge($defaultOptions, $options);
+
+        $filename = 'batch_labels_' . date('Y-m-d_H-i-s') . '.pdf';
+
+        $this->logger->info('Generating Batch Labels PDF', [
+            'items_count' => count($itemsWithOrderData),
+            'options' => $options,
+            'filename' => $filename
+        ]);
+
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
+
+        try {
+            // Initialize PDF with specified format
+            $pdf = $this->initializeBatchPdf($options);
+            $this->preparePdf($pdf);
+
+            // Use the same page dimensions as individual rotulos for consistency
+            $pageWidth = 502;  // Same as individual rotulos
+            $pageHeight = 500; // Same as individual rotulos
+
+            // Prepare label data
+            $labelData = $this->prepareBatchLabelData($itemsWithOrderData, $options);
+
+            // Calculate optimal layout
+            $layout = $this->calculateOptimalLayout($labelData, $pageWidth, $pageHeight, $options);
+
+            // Validate layout
+            if (empty($layout['pages']) || $layout['total_pages'] === 0) {
+                throw new \Exception('No pages generated in layout calculation');
+            }
+
+            $this->logger->debug('Batch labels layout calculated', [
+                'total_pages' => $layout['total_pages'],
+                'total_labels' => $layout['total_labels'],
+                'pages_count' => count($layout['pages'])
+            ]);
+
+            // Ensure we have at least one page before generating labels
+            if ($layout['total_pages'] > 0) {
+                // Add the first page
+                $pdf->AddPage();
+
+                $this->logger->debug('First page added to PDF', [
+                    'page_count_before' => $pdf->getPage(),
+                    'layout_pages' => count($layout['pages'])
+                ]);
+
+                // Generate labels using optimized layout
+                $this->generateBatchLabels($pdf, $labelData, $layout, $options);
+            } else {
+                throw new \Exception('No pages to generate - layout calculation failed');
+            }
+
+            // Log the download
+            $this->logPdfDownload('batch_labels', 'multiple_orders', $filename);
+
+            // Output the PDF directly to browser
+            $pdf->Output($filename, 'D');
+
+            $this->logger->info('Batch labels PDF generated and sent to browser', [
+                'filename' => $filename,
+                'total_labels' => count($labelData)
+            ]);
+
+            // This line should never be reached as the PDF is output directly
+            return $filename;
+        } catch (\Exception $e) {
+            $this->logger->error('Error generating batch labels PDF', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        } finally {
+            // Restore error reporting
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
+        }
+    }
+
+    /**
+     * Initialize PDF for batch printing with specified options
+     */
+    private function initializeBatchPdf(array $options): Fpdi
+    {
+        // Use the same custom dimensions as individual rotulos for consistency
+        // Individual rotulos use [502, 500] dimensions
+        $pdf = new Fpdi('P', 'mm', [502, 500]);
+        return $pdf;
+    }
+
+    /**
+     * Get page dimensions for specified format and orientation
+     */
+    private function getPageDimensions(string $format, string $orientation): array
+    {
+        $dimensions = [
+            'A4' => [210, 297],
+            'A3' => [297, 420],
+            'A2' => [420, 594],
+            'A1' => [594, 841],
+            'A0' => [841, 1189],
+            'Letter' => [216, 279],
+            'Legal' => [216, 356],
+        ];
+
+        $size = $dimensions[$format] ?? $dimensions['A4'];
+
+        if ($orientation === 'L') {
+            // Landscape: swap width and height
+            return ['width' => $size[1], 'height' => $size[0]];
+        }
+
+        return ['width' => $size[0], 'height' => $size[1]];
+    }
+
+    /**
+     * Prepare label data for batch printing with grouping and optimization
+     */
+    private function prepareBatchLabelData(array $itemsWithOrderData, array $options): array
+    {
+        $labelData = [];
+
+        foreach ($itemsWithOrderData as $itemIndex => $itemWithOrder) {
+            $item = $itemWithOrder['item'];
+            $orderData = $itemWithOrder['order_data'];
+
+            $rotuloData = $this->prepareRotuloDataFromItem($orderData, $item, $itemIndex);
+            $productType = $rotuloData['product_type'] ?? '';
+            $productName = $rotuloData['product_name'] ?? '';
+            $layoutType = $this->getProductLayoutType($productType, $productName);
+
+            // Determine color scheme
+            $colorSchemeType = $this->getColorSchemeType($productType, $productName);
+            $rotuloData['color_scheme_type'] = $colorSchemeType;
+            $rotuloData['layout_type'] = $layoutType;
+
+            // Get label dimensions
+            $dimensions = $this->getLabelDimensions($layoutType);
+            $rotuloData['label_width'] = $dimensions['width'];
+            $rotuloData['label_height'] = $dimensions['height'];
+            $rotuloData['label_type'] = $layoutType;
+
+            $labelData[] = $rotuloData;
+        }
+
+        // Group by type if requested
+        if ($options['group_by_type']) {
+            $labelData = $this->groupLabelsByType($labelData);
+        }
+
+        return $labelData;
+    }
+
+    /**
+     * Get standard dimensions for different label types
+     */
+    private function getLabelDimensions(string $layoutType): array
+    {
+        $dimensions = [
+            'pouch' => ['width' => 76, 'height' => 117],
+            'capsula' => ['width' => 141, 'height' => 31],
+            'horizontal' => ['width' => 141, 'height' => 31],
+            'default' => ['width' => 100, 'height' => 50],
+        ];
+
+        return $dimensions[$layoutType] ?? $dimensions['default'];
+    }
+
+    /**
+     * Group labels by type for better layout optimization
+     */
+    private function groupLabelsByType(array $labelData): array
+    {
+        $grouped = [
+            'pouch' => [],
+            'capsula' => [],
+            'horizontal' => [],
+            'other' => []
+        ];
+
+        foreach ($labelData as $label) {
+            $type = $label['label_type'];
+            if (isset($grouped[$type])) {
+                $grouped[$type][] = $label;
+            } else {
+                $grouped['other'][] = $label;
+            }
+        }
+
+        // Flatten back to array maintaining type grouping
+        $result = [];
+        foreach (['pouch', 'capsula', 'horizontal', 'other'] as $type) {
+            $result = array_merge($result, $grouped[$type]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Calculate optimal layout for batch printing with minimal waste
+     */
+    private function calculateOptimalLayout(array $labelData, float $pageWidth, float $pageHeight, array $options): array
+    {
+        $margin = $options['margin'];
+        $spacing = $options['spacing'];
+
+        // Available space for labels
+        $availableWidth = $pageWidth - (2 * $margin);
+        $availableHeight = $pageHeight - (2 * $margin);
+
+        $layout = [
+            'pages' => [],
+            'total_pages' => 0,
+            'total_labels' => count($labelData),
+            'waste_percentage' => 0
+        ];
+
+        $currentPage = [
+            'labels' => [],
+            'used_width' => 0,
+            'used_height' => 0,
+            'rows' => []
+        ];
+
+        $currentRow = [
+            'labels' => [],
+            'height' => 0,
+            'width' => 0
+        ];
+
+        foreach ($labelData as $label) {
+            $labelWidth = $label['label_width'];
+            $labelHeight = $label['label_height'];
+
+            // Check if label fits in current row
+            if ($currentRow['width'] + $labelWidth + $spacing <= $availableWidth) {
+                // Add to current row
+                $currentRow['labels'][] = $label;
+                $currentRow['width'] += $labelWidth + $spacing;
+                $currentRow['height'] = max($currentRow['height'], $labelHeight);
+            } else {
+                // Current row is full, finalize it
+                if (!empty($currentRow['labels'])) {
+                    $currentPage['rows'][] = $currentRow;
+                    $currentPage['used_height'] += $currentRow['height'] + $spacing;
+                }
+
+                // Check if row fits on current page
+                if ($currentPage['used_height'] + $labelHeight + $spacing > $availableHeight) {
+                    // Page is full, start new page
+                    $layout['pages'][] = $currentPage;
+                    $layout['total_pages']++;
+
+                    $currentPage = [
+                        'labels' => [],
+                        'used_width' => 0,
+                        'used_height' => 0,
+                        'rows' => []
+                    ];
+                }
+
+                // Start new row
+                $currentRow = [
+                    'labels' => [$label],
+                    'height' => $labelHeight,
+                    'width' => $labelWidth + $spacing
+                ];
+            }
+        }
+
+        // Add final row and page
+        if (!empty($currentRow['labels'])) {
+            $currentPage['rows'][] = $currentRow;
+        }
+        if (!empty($currentPage['rows'])) {
+            $layout['pages'][] = $currentPage;
+            $layout['total_pages']++;
+        }
+
+        // Calculate waste percentage
+        $layout['waste_percentage'] = $this->calculateWastePercentage($layout, $availableWidth, $availableHeight);
+
+        return $layout;
+    }
+
+    /**
+     * Calculate waste percentage for layout optimization
+     */
+    private function calculateWastePercentage(array $layout, float $availableWidth, float $availableHeight): float
+    {
+        $totalUsedArea = 0;
+        $totalAvailableArea = $availableWidth * $availableHeight * $layout['total_pages'];
+
+        foreach ($layout['pages'] as $page) {
+            foreach ($page['rows'] as $row) {
+                $rowArea = $row['width'] * $row['height'];
+                $totalUsedArea += $rowArea;
+            }
+        }
+
+        if ($totalAvailableArea == 0) return 0;
+
+        return (($totalAvailableArea - $totalUsedArea) / $totalAvailableArea) * 100;
+    }
+
+    /**
+     * Generate batch labels using calculated layout
+     */
+    private function generateBatchLabels(Fpdi $pdf, array $labelData, array $layout, array $options): void
+    {
+        $margin = $options['margin'];
+        $spacing = $options['spacing'];
+
+        if (empty($layout['pages'])) {
+            throw new \Exception('No pages to generate labels for');
+        }
+
+        foreach ($layout['pages'] as $pageIndex => $page) {
+            // Skip the first page (index 0) since it's already added
+            if ($pageIndex > 0) {
+                $pdf->AddPage();
+            }
+
+            $currentY = $margin;
+
+            if (empty($page['rows'])) {
+                $this->logger->warning('Empty page in batch layout', ['page_index' => $pageIndex]);
+                continue;
+            }
+
+            foreach ($page['rows'] as $row) {
+                $currentX = $margin;
+                $rowHeight = $row['height'];
+
+                if (empty($row['labels'])) {
+                    $this->logger->warning('Empty row in batch layout', ['page_index' => $pageIndex]);
+                    continue;
+                }
+
+                foreach ($row['labels'] as $label) {
+                    try {
+                        // Add the label
+                        $this->addSingleRotulo(
+                            $pdf,
+                            $label,
+                            $currentX,
+                            $currentY,
+                            $label['label_width'],
+                            $label['label_height']
+                        );
+                    } catch (\Exception $e) {
+                        $this->logger->error('Error adding single rotulo in batch', [
+                            'error' => $e->getMessage(),
+                            'label_data' => $label,
+                            'position' => ['x' => $currentX, 'y' => $currentY],
+                            'dimensions' => ['width' => $label['label_width'], 'height' => $label['label_height']]
+                        ]);
+                        throw $e;
+                    }
+
+                    // Move to next position in row
+                    $currentX += $label['label_width'] + $spacing;
+                }
+
+                // Move to next row
+                $currentY += $rowHeight + $spacing;
+            }
+        }
+    }
+
+    /**
+     * Convenience method for quick batch label printing with default settings
+     * 
+     * @param array $itemsWithOrderData Array of items with their associated order data
+     * @param string $pageFormat Page format (A4, A3, A2, etc.)
+     * @param string $orientation Page orientation (P for portrait, L for landscape)
+     * @return string Filename of the generated PDF
+     */
+    public function printBatchLabels(array $itemsWithOrderData, string $pageFormat = 'A4', string $orientation = 'P'): string
+    {
+        $options = [
+            'page_format' => $pageFormat,
+            'orientation' => $orientation,
+            'margin' => 5,
+            'spacing' => 2,
+            'group_by_type' => true,
+            'optimize_layout' => true,
+        ];
+
+        return $this->createBatchLabelsPdf($itemsWithOrderData, $options);
+    }
+
+    /**
+     * Get batch printing statistics and layout preview
+     * 
+     * @param array $itemsWithOrderData Array of items with their associated order data
+     * @param array $options Configuration options for batch printing
+     * @return array Statistics about the batch layout
+     */
+    public function getBatchLayoutPreview(array $itemsWithOrderData, array $options = []): array
+    {
+        $defaultOptions = [
+            'page_format' => 'A4',
+            'orientation' => 'P',
+            'margin' => 5,
+            'spacing' => 2,
+            'group_by_type' => true,
+            'optimize_layout' => true,
+        ];
+
+        $options = array_merge($defaultOptions, $options);
+
+        // Prepare label data
+        $labelData = $this->prepareBatchLabelData($itemsWithOrderData, $options);
+
+        // Use the same page dimensions as individual rotulos
+        $pageWidth = 502;
+        $pageHeight = 500;
+
+        // Calculate layout
+        $layout = $this->calculateOptimalLayout($labelData, $pageWidth, $pageHeight, $options);
+
+        // Add additional statistics
+        $layout['page_format'] = 'custom';
+        $layout['orientation'] = 'P';
+        $layout['page_dimensions'] = ['width' => $pageWidth, 'height' => $pageHeight];
+        $layout['label_types'] = $this->getLabelTypeStatistics($labelData);
+
+        return $layout;
+    }
+
+    /**
+     * Get statistics about label types in the batch
+     */
+    private function getLabelTypeStatistics(array $labelData): array
+    {
+        $stats = [];
+
+        foreach ($labelData as $label) {
+            $type = $label['label_type'];
+            if (!isset($stats[$type])) {
+                $stats[$type] = [
+                    'count' => 0,
+                    'total_width' => 0,
+                    'total_height' => 0,
+                    'dimensions' => [
+                        'width' => $label['label_width'],
+                        'height' => $label['label_height']
+                    ]
+                ];
+            }
+
+            $stats[$type]['count']++;
+            $stats[$type]['total_width'] += $label['label_width'];
+            $stats[$type]['total_height'] += $label['label_height'];
+        }
+
+        return $stats;
     }
 
     /**

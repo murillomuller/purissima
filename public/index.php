@@ -40,6 +40,7 @@ $router->get('/orders/api', [OrdersController::class, 'getOrdersApi']); // Async
 $router->post('/orders/generate-prescription', [OrdersController::class, 'generatePrescription']);
 $router->post('/orders/generate-batch-prescriptions', [OrdersController::class, 'generateBatchPrescriptions']);
 $router->post('/orders/generate-sticker', [OrdersController::class, 'generateSticker']);
+$router->post('/orders/generate-batch-labels', [OrdersController::class, 'generateBatchLabels']);
 $router->get('/orders/config', [OrdersController::class, 'getAppConfig']);
 $router->get('/download-prescription', [OrdersController::class, 'downloadPrescription']);
 

@@ -114,6 +114,13 @@ ob_start();
                                 <span class="hidden sm:inline">Receituário em Lote</span>
                                 <span class="sm:hidden">Lote</span>
                             </button>
+                            <button id="bulkLabelsBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                                </svg>
+                                <span class="hidden sm:inline">Rótulos em Lote</span>
+                                <span class="sm:hidden">Rótulos</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -823,12 +830,14 @@ ob_start();
         const selectAll = document.getElementById('selectAll');
         const checkboxes = Array.from(document.querySelectorAll('.row-select'));
         const bulkBtn = document.getElementById('bulkGenerateBtn');
+        const bulkLabelsBtn = document.getElementById('bulkLabelsBtn');
         const selectedCount = document.getElementById('selectedCount');
 
         function refreshUI() {
             const checked = checkboxes.filter(cb => cb.checked);
             selectedCount.textContent = `${checked.length} selecionado(s)`;
             bulkBtn.disabled = checked.length === 0;
+            bulkLabelsBtn.disabled = checked.length === 0;
             selectAll.checked = checked.length > 0 && checked.length === checkboxes.length;
             selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
         }
@@ -846,6 +855,12 @@ ob_start();
             const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
             if (ids.length === 0) return;
             generateBatch(ids);
+        });
+
+        bulkLabelsBtn.addEventListener('click', () => {
+            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+            if (ids.length === 0) return;
+            generateBatchLabels(ids);
         });
 
         refreshUI();
@@ -1129,6 +1144,58 @@ ob_start();
             .catch(error => {
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 console.error('Error generating batch prescriptions:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    function generateBatchLabels(ids) {
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/generate-batch-labels', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_ids=${encodeURIComponent(JSON.stringify(ids))}`
+            })
+            .then(response => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and download
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `rotulos_batch_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+
+                            // Show success message
+                            showSuccessMessage('Rótulos gerados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Rótulos gerados com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar rótulos em lote');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error generating batch labels:', error);
                 showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
             });
     }
