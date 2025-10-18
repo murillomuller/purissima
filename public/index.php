@@ -44,5 +44,10 @@ $router->post('/orders/generate-batch-labels', [OrdersController::class, 'genera
 $router->get('/orders/config', [OrdersController::class, 'getAppConfig']);
 $router->get('/download-prescription', [OrdersController::class, 'downloadPrescription']);
 
+// Preview routes for PDF viewing in browser
+$router->post('/orders/preview-prescription', [OrdersController::class, 'previewPrescription']);
+$router->post('/orders/preview-batch-prescriptions', [OrdersController::class, 'previewBatchPrescriptions']);
+$router->post('/orders/preview-batch-labels', [OrdersController::class, 'previewBatchLabels']);
+
 // Handle the request
 $app->run($router);

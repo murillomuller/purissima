@@ -83,8 +83,11 @@ class OrdersController extends BaseController
                 return $this->json(['success' => false, 'error' => 'Order not found'], 404);
             }
 
+            // Check if preview mode is requested
+            $previewMode = filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN);
+
             // This will output the PDF directly to browser and log the download
-            $filename = $this->pdfService->createPrescriptionPdf($order['order'], $order['items']);
+            $filename = $this->pdfService->createPrescriptionPdf($order['order'], $order['items'], $previewMode);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([
@@ -101,6 +104,41 @@ class OrdersController extends BaseController
             return $this->json([
                 'success' => false,
                 'error' => 'Failed to generate prescription: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function previewPrescription(Request $request)
+    {
+        try {
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order) {
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            // This will output the PDF for preview in browser
+            $filename = $this->pdfService->previewPrescriptionPdf($order['order'], $order['items']);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Prescription preview generated successfully'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview prescription', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to preview prescription: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -265,8 +303,11 @@ class OrdersController extends BaseController
                 return $this->json(['success' => false, 'error' => 'No valid orders found'], 404);
             }
 
+            // Check if preview mode is requested
+            $previewMode = filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN);
+
             // This will output the PDF directly to browser and log the download
-            $filename = $this->pdfService->createBatchPrescriptionPdf($orders);
+            $filename = $this->pdfService->createBatchPrescriptionPdf($orders, $previewMode);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([
@@ -281,6 +322,70 @@ class OrdersController extends BaseController
             return $this->json([
                 'success' => false,
                 'error' => 'Failed to generate batch prescriptions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function previewBatchPrescriptions(Request $request)
+    {
+        try {
+            $ids = $request->get('order_ids');
+            if (empty($ids)) {
+                return $this->json(['success' => false, 'error' => 'Order IDs are required'], 400);
+            }
+
+            // Accept JSON array or comma-separated string
+            if (is_string($ids)) {
+                $decoded = json_decode($ids, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $ids = $decoded;
+                } else {
+                    $ids = array_filter(array_map('trim', explode(',', $ids)));
+                }
+            }
+
+            if (!is_array($ids) || count($ids) === 0) {
+                return $this->json(['success' => false, 'error' => 'Invalid order IDs'], 400);
+            }
+
+            $orders = [];
+            foreach ($ids as $orderId) {
+                try {
+                    $order = $this->purissimaApi->getOrderById($orderId);
+                    if ($order && isset($order['order'])) {
+                        $orders[] = [
+                            'order' => $order['order'],
+                            'items' => $order['items'] ?? []
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->warning('Skipping order during batch preview', [
+                        'order_id' => $orderId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            if (count($orders) === 0) {
+                return $this->json(['success' => false, 'error' => 'No valid orders found'], 404);
+            }
+
+            // This will output the PDF for preview in browser
+            $filename = $this->pdfService->previewBatchPrescriptionPdf($orders);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Batch prescription preview generated successfully'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview batch prescriptions', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Failed to preview batch prescriptions: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -319,6 +424,7 @@ class OrdersController extends BaseController
                 'spacing' => (float) $request->get('spacing', 2),
                 'group_by_type' => filter_var($request->get('group_by_type', 'true'), FILTER_VALIDATE_BOOLEAN),
                 'optimize_layout' => filter_var($request->get('optimize_layout', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'preview_mode' => filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN),
             ];
 
             // Collect all items with their associated order data
@@ -387,6 +493,117 @@ class OrdersController extends BaseController
             return $this->json([
                 'success' => false,
                 'error' => 'Falha ao gerar rótulos em lote: ' . $e->getMessage()
+            ], 500);
+        } finally {
+            // Restore error reporting settings
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
+        }
+    }
+
+    public function previewBatchLabels(Request $request)
+    {
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
+
+        try {
+            $ids = $request->get('order_ids');
+            if (empty($ids)) {
+                return $this->json(['success' => false, 'error' => 'Order IDs are required'], 400);
+            }
+
+            // Accept JSON array or comma-separated string
+            if (is_string($ids)) {
+                $decoded = json_decode($ids, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $ids = $decoded;
+                } else {
+                    $ids = array_filter(array_map('trim', explode(',', $ids)));
+                }
+            }
+
+            if (!is_array($ids) || count($ids) === 0) {
+                return $this->json(['success' => false, 'error' => 'Invalid order IDs'], 400);
+            }
+
+            // Get batch options from request with preview mode enabled
+            $options = [
+                'page_format' => $request->get('page_format', 'A4'),
+                'orientation' => $request->get('orientation', 'P'),
+                'margin' => (float) $request->get('margin', 5),
+                'spacing' => (float) $request->get('spacing', 2),
+                'group_by_type' => filter_var($request->get('group_by_type', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'optimize_layout' => filter_var($request->get('optimize_layout', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'preview_mode' => true, // Always true for preview
+            ];
+
+            // Collect all items with their associated order data
+            $allItemsWithOrderData = [];
+
+            foreach ($ids as $orderId) {
+                try {
+                    $order = $this->purissimaApi->getOrderById($orderId);
+                    if ($order && isset($order['order'])) {
+                        $orderData = $order['order'];
+                        $items = $order['items'] ?? [];
+
+                        // Check if all items have req field (skip in dev mode)
+                        $devMode = filter_var($_ENV['DEV_MODE'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+
+                        if (!$devMode) {
+                            foreach ($items as $item) {
+                                if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                                    $this->logger->warning('Skipping item without REQ field', [
+                                        'order_id' => $orderId,
+                                        'item' => $item
+                                    ]);
+                                    continue;
+                                }
+                                // Store item with its associated order data
+                                $allItemsWithOrderData[] = [
+                                    'item' => $item,
+                                    'order_data' => $orderData
+                                ];
+                            }
+                        } else {
+                            foreach ($items as $item) {
+                                // Store item with its associated order data
+                                $allItemsWithOrderData[] = [
+                                    'item' => $item,
+                                    'order_data' => $orderData
+                                ];
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->warning('Skipping order during batch label preview', [
+                        'order_id' => $orderId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            if (count($allItemsWithOrderData) === 0) {
+                return $this->json(['success' => false, 'error' => 'No valid items found for batch label preview'], 404);
+            }
+
+            // This will output the PDF for preview in browser
+            $filename = $this->pdfService->previewBatchLabelsPdf($allItemsWithOrderData, $options);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Batch labels preview generated successfully'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview batch labels', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao visualizar rótulos em lote: ' . $e->getMessage()
             ], 500);
         } finally {
             // Restore error reporting settings

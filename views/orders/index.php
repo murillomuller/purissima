@@ -107,20 +107,64 @@ ob_start();
                                     <option value="100">100</option>
                                 </select>
                             </div>
-                            <button id="bulkGenerateBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                <span class="hidden sm:inline">Receituário em Lote</span>
-                                <span class="sm:hidden">Lote</span>
-                            </button>
-                            <button id="bulkLabelsBtn" disabled class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
-                                </svg>
-                                <span class="hidden sm:inline">Rótulos em Lote</span>
-                                <span class="sm:hidden">Rótulos</span>
-                            </button>
+                            <div class="relative inline-block text-left">
+                                <button id="bulkGenerateBtn" disabled onclick="toggleBatchPrescriptionsDropdown()" class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
+                                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <span class="hidden sm:inline">Receituário em Lote</span>
+                                    <span class="sm:hidden">Lote</span>
+                                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                <div id="batchPrescriptionsDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                    <div class="py-1">
+                                        <button id="bulkPrescriptionsDownloadBtn" disabled class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                            Baixar PDF
+                                        </button>
+                                        <button id="bulkPrescriptionsPreviewBtn" disabled class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                            Visualizar PDF
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="relative inline-block text-left">
+                                <button id="bulkLabelsBtn" disabled onclick="toggleBatchLabelsDropdown()" class="bg-white/20 hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center space-x-1 sm:space-x-2 transition-colors duration-200 whitespace-nowrap">
+                                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                                    </svg>
+                                    <span class="hidden sm:inline">Rótulos em Lote</span>
+                                    <span class="sm:hidden">Rótulos</span>
+                                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                                <div id="batchLabelsDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                    <div class="py-1">
+                                        <button id="bulkLabelsDownloadBtn" disabled class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                            Baixar PDF
+                                        </button>
+                                        <button id="bulkLabelsPreviewBtn" disabled class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                            Visualizar PDF
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -590,14 +634,36 @@ ob_start();
             </td>
             <td class="px-3 sm:px-6 py-3 sm:py-4">
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 sm:space-x-2">
-                    <button onclick="generatePrescription('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        <span class="hidden sm:inline">Receituário</span>
-                        <span class="sm:hidden">REC</span>
-                    </button>
+                    <div class="relative inline-block text-left">
+                        <button onclick="togglePrescriptionDropdown('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Receituário</span>
+                            <span class="sm:hidden">REC</span>
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="prescriptionDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generatePrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar PDF
+                                </button>
+                                <button onclick="previewPrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     ${checkAllItemsHaveReq(o.items) ? 
                         `<button onclick="generateSticker('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
                             <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -830,14 +896,22 @@ ob_start();
         const selectAll = document.getElementById('selectAll');
         const checkboxes = Array.from(document.querySelectorAll('.row-select'));
         const bulkBtn = document.getElementById('bulkGenerateBtn');
+        const bulkPrescriptionsDownloadBtn = document.getElementById('bulkPrescriptionsDownloadBtn');
+        const bulkPrescriptionsPreviewBtn = document.getElementById('bulkPrescriptionsPreviewBtn');
         const bulkLabelsBtn = document.getElementById('bulkLabelsBtn');
+        const bulkLabelsDownloadBtn = document.getElementById('bulkLabelsDownloadBtn');
+        const bulkLabelsPreviewBtn = document.getElementById('bulkLabelsPreviewBtn');
         const selectedCount = document.getElementById('selectedCount');
 
         function refreshUI() {
             const checked = checkboxes.filter(cb => cb.checked);
             selectedCount.textContent = `${checked.length} selecionado(s)`;
             bulkBtn.disabled = checked.length === 0;
+            bulkPrescriptionsDownloadBtn.disabled = checked.length === 0;
+            bulkPrescriptionsPreviewBtn.disabled = checked.length === 0;
             bulkLabelsBtn.disabled = checked.length === 0;
+            bulkLabelsDownloadBtn.disabled = checked.length === 0;
+            bulkLabelsPreviewBtn.disabled = checked.length === 0;
             selectAll.checked = checked.length > 0 && checked.length === checkboxes.length;
             selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
         }
@@ -851,16 +925,32 @@ ob_start();
         });
         checkboxes.forEach(cb => cb.addEventListener('change', refreshUI));
 
-        bulkBtn.addEventListener('click', () => {
+        bulkPrescriptionsDownloadBtn.addEventListener('click', () => {
             const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
             if (ids.length === 0) return;
             generateBatch(ids);
+            closeDropdown('batchPrescriptionsDropdown');
         });
 
-        bulkLabelsBtn.addEventListener('click', () => {
+        bulkPrescriptionsPreviewBtn.addEventListener('click', () => {
+            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+            if (ids.length === 0) return;
+            previewBatchPrescriptions(ids);
+            closeDropdown('batchPrescriptionsDropdown');
+        });
+
+        bulkLabelsDownloadBtn.addEventListener('click', () => {
             const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
             if (ids.length === 0) return;
             generateBatchLabels(ids);
+            closeDropdown('batchLabelsDropdown');
+        });
+
+        bulkLabelsPreviewBtn.addEventListener('click', () => {
+            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+            if (ids.length === 0) return;
+            previewBatchLabels(ids);
+            closeDropdown('batchLabelsDropdown');
         });
 
         refreshUI();
@@ -994,12 +1084,34 @@ ob_start();
                 Ações
             </h4>
             <div class='flex flex-col sm:flex-row gap-3'>
-                <button onclick="generatePrescription('${order.ord_id}')" class='bg-primary hover:bg-secondary text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
-                    <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                        <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z'></path>
-                    </svg>
-                    <span>Gerar Receituário</span>
-                </button>
+                <div class="relative inline-block text-left">
+                    <button onclick="togglePrescriptionModalDropdown('${order.ord_id}')" class='bg-primary hover:bg-secondary text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
+                        <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z'></path>
+                        </svg>
+                        <span>Receituário</span>
+                        <svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'></path>
+                        </svg>
+                    </button>
+                    <div id="prescriptionModalDropdown-${order.ord_id}" class="hidden absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                        <div class="py-1">
+                            <button onclick="generatePrescription('${order.ord_id}'); closeDropdown('prescriptionModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Baixar Receituário
+                            </button>
+                            <button onclick="previewPrescription('${order.ord_id}'); closeDropdown('prescriptionModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                Visualizar Receituário
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 ${checkAllItemsHaveReq(items) ? 
                     `<button onclick="generateSticker('${order.ord_id}')" class='bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
                         <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -1022,6 +1134,91 @@ ob_start();
     function closeModal() {
         document.getElementById('orderModal').classList.add('hidden');
     }
+
+    // Dropdown functions
+    function togglePrescriptionDropdown(orderId) {
+        const dropdown = document.getElementById(`prescriptionDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function togglePrescriptionModalDropdown(orderId) {
+        const dropdown = document.getElementById(`prescriptionModalDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function toggleBatchPrescriptionsDropdown() {
+        const dropdown = document.getElementById('batchPrescriptionsDropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function toggleBatchLabelsDropdown() {
+        const dropdown = document.getElementById('batchLabelsDropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function closeDropdown(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+    }
+
+    function closeAllDropdowns() {
+        // Close all prescription dropdowns
+        const prescriptionDropdowns = document.querySelectorAll('[id^="prescriptionDropdown-"]');
+        prescriptionDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close all prescription modal dropdowns
+        const prescriptionModalDropdowns = document.querySelectorAll('[id^="prescriptionModalDropdown-"]');
+        prescriptionModalDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close batch prescriptions dropdown
+        const batchPrescriptionsDropdown = document.getElementById('batchPrescriptionsDropdown');
+        if (batchPrescriptionsDropdown) {
+            batchPrescriptionsDropdown.classList.add('hidden');
+        }
+
+        // Close batch labels dropdown
+        const batchLabelsDropdown = document.getElementById('batchLabelsDropdown');
+        if (batchLabelsDropdown) {
+            batchLabelsDropdown.classList.add('hidden');
+        }
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.relative')) {
+            closeAllDropdowns();
+        }
+    });
 
     function generatePrescription(id) {
         // Show loading overlay
@@ -1091,6 +1288,74 @@ ob_start();
             })
             .finally(() => {
                 // Re-enable the button
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function previewPrescription(id) {
+        // Show loading overlay
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Visualizando...</span>
+    `;
+
+        // Make the API call for preview
+        fetch('/orders/preview-prescription', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                // Hide loading overlay
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage(`Receituário visualizado com sucesso!`);
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage(`Receituário visualizado com sucesso!`);
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar receituário');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                // Hide loading overlay
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error previewing prescription:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                // Re-enable button and restore original content
                 button.disabled = false;
                 button.innerHTML = originalContent;
             });
@@ -1196,6 +1461,102 @@ ob_start();
             .catch(error => {
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 console.error('Error generating batch labels:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    function previewBatchPrescriptions(ids) {
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/preview-batch-prescriptions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_ids=${encodeURIComponent(JSON.stringify(ids))}`
+            })
+            .then(response => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage('Receituários visualizados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Receituários visualizados com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar receituários em lote');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error previewing batch prescriptions:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    function previewBatchLabels(ids) {
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/preview-batch-labels', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_ids=${encodeURIComponent(JSON.stringify(ids))}`
+            })
+            .then(response => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage('Rótulos visualizados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Rótulos visualizados com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar rótulos em lote');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error previewing batch labels:', error);
                 showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
             });
     }
