@@ -2473,6 +2473,10 @@ class TcpdfService
             'group_by_type' => $options['group_by_type'] ?? false
         ]);
 
+        // Create a temporary PDF for height calculations
+        $tempPdf = $this->initializeBatchPdf($options);
+        $this->preparePdf($tempPdf);
+
         foreach ($itemsWithOrderData as $itemIndex => $itemWithOrder) {
             $item = $itemWithOrder['item'];
             $orderData = $itemWithOrder['order_data'];
@@ -2487,11 +2491,25 @@ class TcpdfService
             $rotuloData['color_scheme_type'] = $colorSchemeType;
             $rotuloData['layout_type'] = $layoutType;
 
-            // Get label dimensions
+            // Get base label dimensions
             $dimensions = $this->getLabelDimensions($layoutType);
             $rotuloData['label_width'] = $dimensions['width'];
             $rotuloData['label_height'] = $dimensions['height'];
             $rotuloData['label_type'] = $layoutType;
+
+            // For pouches, calculate actual dynamic height based on content
+            if ($layoutType === 'pouch') {
+                $actualHeight = $this->calculatePouchHeight($tempPdf, $rotuloData, $dimensions['width'], $dimensions['height']);
+                $rotuloData['label_height'] = $actualHeight;
+
+                $this->logger->debug('Calculated dynamic pouch height', [
+                    'order_id' => $rotuloData['order_id'] ?? 'unknown',
+                    'product_name' => $productName,
+                    'base_height' => $dimensions['height'],
+                    'actual_height' => $actualHeight,
+                    'height_difference' => $actualHeight - $dimensions['height']
+                ]);
+            }
 
             $labelData[] = $rotuloData;
         }
@@ -2509,8 +2527,140 @@ class TcpdfService
             ]);
         }
 
+        // Optimize pouch ordering to avoid rotated pouches as first items on pages
+        $labelData = $this->optimizePouchOrdering($labelData);
+
         return $labelData;
     }
+
+    /**
+     * Optimize pouch ordering to move rotated pouches that would be first on page to end
+     */
+    private function optimizePouchOrdering(array $labelData): array
+    {
+        $pouches = [];
+        $otherItems = [];
+        $rotatedPouches = [];
+
+        // Separate pouches from other items
+        foreach ($labelData as $label) {
+            if ($label['label_type'] === 'pouch') {
+                $pouches[] = $label;
+            } else {
+                $otherItems[] = $label;
+            }
+        }
+
+        // If we have pouches, analyze which ones would be rotated
+        if (!empty($pouches)) {
+            // Analyze pouch pairing to determine which would be rotated
+            $pouchPairs = $this->analyzePouchPairing($pouches);
+
+            foreach ($pouches as $index => $pouch) {
+                $wouldBeRotated = $this->wouldPouchBeRotatedBasedOnPairing($pouch, $pouchPairs, $index);
+                $isEarlyInList = $index < 2; // First 2 items are likely to be first on page
+
+                if ($wouldBeRotated && $isEarlyInList) {
+                    $rotatedPouches[] = $pouch;
+                    $this->logger->debug('Pouch identified for reordering to avoid being first rotated item', [
+                        'order_id' => $pouch['order_id'] ?? 'unknown',
+                        'product_name' => $pouch['product_name'] ?? 'unknown',
+                        'original_position' => $index,
+                        'would_be_rotated' => $wouldBeRotated,
+                        'is_early_in_list' => $isEarlyInList
+                    ]);
+                }
+            }
+        }
+
+        // Reorder: non-rotated pouches first, then other items, then rotated pouches
+        $optimizedOrder = [];
+
+        // Add non-rotated pouches first
+        foreach ($pouches as $pouch) {
+            if (!in_array($pouch, $rotatedPouches)) {
+                $optimizedOrder[] = $pouch;
+            }
+        }
+
+        // Add other items
+        $optimizedOrder = array_merge($optimizedOrder, $otherItems);
+
+        // Add rotated pouches at the end
+        $optimizedOrder = array_merge($optimizedOrder, $rotatedPouches);
+
+        $this->logger->debug('Pouch ordering optimized', [
+            'total_items' => count($labelData),
+            'pouches_moved_to_end' => count($rotatedPouches),
+            'optimized_order_count' => count($optimizedOrder)
+        ]);
+
+        return $optimizedOrder;
+    }
+
+    /**
+     * Analyze pouch pairing to determine which pouches would be rotated
+     */
+    private function analyzePouchPairing(array $pouches): array
+    {
+        $pairs = [];
+        $unpaired = [];
+
+        // Group pouches by order to understand pairing
+        $orderGroups = [];
+        foreach ($pouches as $pouch) {
+            $orderId = $pouch['order_id'] ?? 'unknown';
+            if (!isset($orderGroups[$orderId])) {
+                $orderGroups[$orderId] = [];
+            }
+            $orderGroups[$orderId][] = $pouch;
+        }
+
+        // Analyze each order group
+        foreach ($orderGroups as $orderId => $orderPouches) {
+            if (count($orderPouches) >= 2) {
+                // Even number of pouches - can be paired
+                for ($i = 0; $i < count($orderPouches); $i += 2) {
+                    if ($i + 1 < count($orderPouches)) {
+                        $pairs[] = [$orderPouches[$i], $orderPouches[$i + 1]];
+                    } else {
+                        $unpaired[] = $orderPouches[$i];
+                    }
+                }
+            } else {
+                // Odd number or single pouch - goes to unpaired
+                $unpaired = array_merge($unpaired, $orderPouches);
+            }
+        }
+
+        return [
+            'pairs' => $pairs,
+            'unpaired' => $unpaired
+        ];
+    }
+
+    /**
+     * Check if a pouch would be rotated based on pairing analysis
+     */
+    private function wouldPouchBeRotatedBasedOnPairing(array $pouch, array $pouchPairs, int $position): bool
+    {
+        // Check if this pouch is in a pair (would not be rotated)
+        foreach ($pouchPairs['pairs'] as $pair) {
+            if (in_array($pouch, $pair)) {
+                return false; // Paired pouches are not rotated
+            }
+        }
+
+        // Check if this pouch is unpaired (would be rotated)
+        foreach ($pouchPairs['unpaired'] as $unpairedPouch) {
+            if ($unpairedPouch === $pouch) {
+                return true; // Unpaired pouches are rotated
+            }
+        }
+
+        return false; // Default to not rotated
+    }
+
 
     /**
      * Get standard dimensions for different label types
@@ -2777,7 +2927,16 @@ class TcpdfService
         int $columnCount
     ): void {
         $pouchWidth = $pouch1['label_width'];
+        // Use the maximum height of the two pouches for layout purposes
         $pouchHeight = max($pouch1['label_height'], $pouch2['label_height']);
+
+        $this->logger->debug('Placing pouches side by side with dynamic heights', [
+            'pouch1_height' => $pouch1['label_height'],
+            'pouch2_height' => $pouch2['label_height'],
+            'layout_height' => $pouchHeight,
+            'current_column_y' => $columnYPositions[$currentColumn],
+            'available_height' => $availableHeight
+        ]);
 
         // Check if pouches fit in current column
         if ($columnYPositions[$currentColumn] + $pouchHeight > $availableHeight + $margin) {
@@ -2841,6 +3000,14 @@ class TcpdfService
         $labelWidth = $label['label_width'];
         $labelHeight = $label['label_height'];
 
+        $this->logger->debug('Placing single label with dynamic height', [
+            'order_id' => $label['order_id'] ?? 'unknown',
+            'label_type' => $label['label_type'],
+            'label_height' => $labelHeight,
+            'current_column_y' => $columnYPositions[$currentColumn],
+            'available_height' => $availableHeight
+        ]);
+
         // Check if this is a single pouch that should be rotated
         if ($label['label_type'] === 'pouch') {
             // Check if this pouch should be rotated based on layout rules
@@ -2859,7 +3026,7 @@ class TcpdfService
                 $labelWidth = $rotatedLayoutWidth;
                 $labelHeight = $rotatedLayoutHeight;
 
-                $this->logger->debug('Single pouch marked for rotation', [
+                $this->logger->debug('Single pouch marked for rotation with dynamic height', [
                     'order_id' => $label['order_id'] ?? 'unknown',
                     'original_dimensions' => ['width' => $label['label_width'], 'height' => $label['label_height']],
                     'layout_dimensions' => ['width' => $rotatedLayoutWidth, 'height' => $rotatedLayoutHeight]

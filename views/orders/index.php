@@ -357,6 +357,9 @@ ob_start();
     let totalItems = 0;
     let paginatedData = [];
 
+    // Global selection state that persists across pagination
+    let globalSelectedIds = new Set();
+
     // Pre-cache DOM elements for better performance
     let cachedElements = {
         searchInput: null,
@@ -519,6 +522,7 @@ ob_start();
     function changePageSize(newSize) {
         itemsPerPage = parseInt(newSize);
         currentPage = 1; // Reset to first page
+        // Selections are preserved automatically since we use globalSelectedIds
         displayOrders(ordersData);
     }
 
@@ -604,9 +608,10 @@ ob_start();
             const order = o.order;
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-gray-50 transition-colors duration-200';
+            const isSelected = globalSelectedIds.has(order.ord_id.toString());
             tr.innerHTML = `
             <td class="px-2 sm:px-4 py-3 sm:py-4">
-                <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}">
+                <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
             </td>
             <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">#${order.ord_id}</td>
             <td class="px-3 sm:px-6 py-3 sm:py-4">
@@ -903,57 +908,147 @@ ob_start();
         const bulkLabelsPreviewBtn = document.getElementById('bulkLabelsPreviewBtn');
         const selectedCount = document.getElementById('selectedCount');
 
-        function refreshUI() {
-            const checked = checkboxes.filter(cb => cb.checked);
-            selectedCount.textContent = `${checked.length} selecionado(s)`;
-            bulkBtn.disabled = checked.length === 0;
-            bulkPrescriptionsDownloadBtn.disabled = checked.length === 0;
-            bulkPrescriptionsPreviewBtn.disabled = checked.length === 0;
-            bulkLabelsBtn.disabled = checked.length === 0;
-            bulkLabelsDownloadBtn.disabled = checked.length === 0;
-            bulkLabelsPreviewBtn.disabled = checked.length === 0;
-            selectAll.checked = checked.length > 0 && checked.length === checkboxes.length;
-            selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+        // Remove existing event listeners to prevent duplicates
+        if (selectAll) {
+            selectAll.replaceWith(selectAll.cloneNode(true));
+        }
+        checkboxes.forEach(cb => {
+            cb.replaceWith(cb.cloneNode(true));
+        });
+        if (bulkPrescriptionsDownloadBtn) {
+            bulkPrescriptionsDownloadBtn.replaceWith(bulkPrescriptionsDownloadBtn.cloneNode(true));
+        }
+        if (bulkPrescriptionsPreviewBtn) {
+            bulkPrescriptionsPreviewBtn.replaceWith(bulkPrescriptionsPreviewBtn.cloneNode(true));
+        }
+        if (bulkLabelsDownloadBtn) {
+            bulkLabelsDownloadBtn.replaceWith(bulkLabelsDownloadBtn.cloneNode(true));
+        }
+        if (bulkLabelsPreviewBtn) {
+            bulkLabelsPreviewBtn.replaceWith(bulkLabelsPreviewBtn.cloneNode(true));
         }
 
-        selectAll.addEventListener('change', () => {
-            const state = selectAll.checked;
-            checkboxes.forEach(cb => {
+        // Re-get elements after cloning
+        const newSelectAll = document.getElementById('selectAll');
+        const newCheckboxes = Array.from(document.querySelectorAll('.row-select'));
+        const newBulkPrescriptionsDownloadBtn = document.getElementById('bulkPrescriptionsDownloadBtn');
+        const newBulkPrescriptionsPreviewBtn = document.getElementById('bulkPrescriptionsPreviewBtn');
+        const newBulkLabelsDownloadBtn = document.getElementById('bulkLabelsDownloadBtn');
+        const newBulkLabelsPreviewBtn = document.getElementById('bulkLabelsPreviewBtn');
+
+        function refreshUI() {
+            const checked = newCheckboxes.filter(cb => cb.checked);
+            const totalSelected = globalSelectedIds.size;
+            selectedCount.textContent = `${totalSelected} selecionado(s)`;
+            bulkBtn.disabled = totalSelected === 0;
+            newBulkPrescriptionsDownloadBtn.disabled = totalSelected === 0;
+            newBulkPrescriptionsPreviewBtn.disabled = totalSelected === 0;
+            bulkLabelsBtn.disabled = totalSelected === 0;
+            newBulkLabelsDownloadBtn.disabled = totalSelected === 0;
+            newBulkLabelsPreviewBtn.disabled = totalSelected === 0;
+            // Update select all based on current page items
+            const currentPageIds = newCheckboxes.map(cb => cb.getAttribute('data-id'));
+            const currentPageSelected = currentPageIds.filter(id => globalSelectedIds.has(id));
+
+            if (currentPageSelected.length === 0) {
+                newSelectAll.checked = false;
+                newSelectAll.indeterminate = false;
+            } else if (currentPageSelected.length === currentPageIds.length) {
+                newSelectAll.checked = true;
+                newSelectAll.indeterminate = false;
+            } else {
+                newSelectAll.checked = false;
+                newSelectAll.indeterminate = true;
+            }
+        }
+
+        newSelectAll.addEventListener('change', () => {
+            const state = newSelectAll.checked;
+            newCheckboxes.forEach(cb => {
                 cb.checked = state;
+                const id = cb.getAttribute('data-id');
+                if (state) {
+                    globalSelectedIds.add(id);
+                } else {
+                    globalSelectedIds.delete(id);
+                }
             });
             refreshUI();
         });
-        checkboxes.forEach(cb => cb.addEventListener('change', refreshUI));
+        newCheckboxes.forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const id = e.target.getAttribute('data-id');
+                if (e.target.checked) {
+                    globalSelectedIds.add(id);
+                } else {
+                    globalSelectedIds.delete(id);
+                }
+                refreshUI();
+            });
+        });
 
-        bulkPrescriptionsDownloadBtn.addEventListener('click', () => {
-            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+        newBulkPrescriptionsDownloadBtn.addEventListener('click', () => {
+            const ids = getSelectedIds();
             if (ids.length === 0) return;
             generateBatch(ids);
             closeDropdown('batchPrescriptionsDropdown');
         });
 
-        bulkPrescriptionsPreviewBtn.addEventListener('click', () => {
-            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+        newBulkPrescriptionsPreviewBtn.addEventListener('click', () => {
+            const ids = getSelectedIds();
             if (ids.length === 0) return;
             previewBatchPrescriptions(ids);
             closeDropdown('batchPrescriptionsDropdown');
         });
 
-        bulkLabelsDownloadBtn.addEventListener('click', () => {
-            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+        newBulkLabelsDownloadBtn.addEventListener('click', () => {
+            const ids = getSelectedIds();
             if (ids.length === 0) return;
             generateBatchLabels(ids);
             closeDropdown('batchLabelsDropdown');
         });
 
-        bulkLabelsPreviewBtn.addEventListener('click', () => {
-            const ids = checkboxes.filter(cb => cb.checked).map(cb => cb.getAttribute('data-id'));
+        newBulkLabelsPreviewBtn.addEventListener('click', () => {
+            const ids = getSelectedIds();
             if (ids.length === 0) return;
             previewBatchLabels(ids);
             closeDropdown('batchLabelsDropdown');
         });
 
         refreshUI();
+    }
+
+    // Function to get all selected IDs
+    function getSelectedIds() {
+        return Array.from(globalSelectedIds);
+    }
+
+    // Function to clear all selections
+    function clearAllSelections() {
+        globalSelectedIds.clear();
+        // Update all visible checkboxes
+        const checkboxes = Array.from(document.querySelectorAll('.row-select'));
+        checkboxes.forEach(cb => cb.checked = false);
+        // Update select all checkbox
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+        // Refresh UI
+        const selectedCount = document.getElementById('selectedCount');
+        if (selectedCount) {
+            selectedCount.textContent = '0 selecionado(s)';
+        }
+        // Disable bulk buttons
+        const bulkButtons = [
+            'bulkGenerateBtn', 'bulkPrescriptionsDownloadBtn', 'bulkPrescriptionsPreviewBtn',
+            'bulkLabelsBtn', 'bulkLabelsDownloadBtn', 'bulkLabelsPreviewBtn'
+        ];
+        bulkButtons.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.disabled = true;
+        });
     }
 
     function escapeHtml(t) {
@@ -1671,5 +1766,7 @@ ob_start();
 
 <?php
 $content = ob_get_clean();
+include __DIR__ . '/../layout.php';
+?>
 include __DIR__ . '/../layout.php';
 ?>
