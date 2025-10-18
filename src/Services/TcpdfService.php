@@ -3674,6 +3674,14 @@ class TcpdfService
     }
 
     /**
+     * Preview sticker PDF in browser
+     */
+    public function previewStickerPdf(array $orderData, array $items): string
+    {
+        return $this->createStickerPdf($orderData, $items, true);
+    }
+
+    /**
      * Get batch printing statistics and layout preview
      * 
      * @param array $itemsWithOrderData Array of items with their associated order data
@@ -4221,7 +4229,7 @@ class TcpdfService
         return $rotulosData;
     }
 
-    public function createStickerPdf(array $orderData, array $items): string
+    public function createStickerPdf(array $orderData, array $items, bool $previewMode = false): string
     {
         // Suppress error output to prevent "headers already sent" error
         $oldErrorReporting = error_reporting(0);
@@ -4250,7 +4258,7 @@ class TcpdfService
             ]);
 
             // Use multiple rotulos function to create one rotulo per item
-            return $this->createMultipleRotulosPdf($orderData, $items);
+            return $this->createMultipleRotulosPdf($orderData, $items, $previewMode);
         } finally {
             // Restore error reporting settings
             error_reporting($oldErrorReporting);

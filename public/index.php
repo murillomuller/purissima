@@ -49,5 +49,12 @@ $router->post('/orders/preview-prescription', [OrdersController::class, 'preview
 $router->post('/orders/preview-batch-prescriptions', [OrdersController::class, 'previewBatchPrescriptions']);
 $router->post('/orders/preview-batch-labels', [OrdersController::class, 'previewBatchLabels']);
 
+// Shipping label routes
+$router->post('/orders/generate-shipping-label', [OrdersController::class, 'generateShippingLabel']);
+$router->post('/orders/preview-shipping-label', [OrdersController::class, 'previewShippingLabel']);
+
+// Sticker preview route
+$router->post('/orders/preview-sticker', [OrdersController::class, 'previewSticker']);
+
 // Handle the request
 $app->run($router);

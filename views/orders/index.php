@@ -55,22 +55,6 @@ ob_start();
             </div>
         </div>
 
-        <!-- Empty State -->
-        <div id="emptyState" class="text-center py-16 hidden">
-            <div class="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center shadow-lg">
-                <svg class="w-16 h-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-            </div>
-            <div class="flex items-center justify-center space-x-2 mb-4">
-                <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                </svg>
-                <h3 class="text-2xl font-semibold text-gray-900">Nenhum pedido encontrado</h3>
-            </div>
-            <p class="text-gray-600 text-lg">Não há pedidos disponíveis no momento.</p>
-        </div>
 
         <!-- Orders Table -->
         <div id="ordersTable" class="bg-white rounded-xl shadow-lg overflow-hidden hidden w-full">
@@ -291,7 +275,7 @@ ob_start();
                 <svg class="w-6 h-6 text-primary animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                <span class="text-gray-700 text-lg font-semibold">Gerando Receituário</span>
+                <span id="loadingMessage" class="text-gray-700 text-lg font-semibold">Gerando...</span>
             </div>
             <p class="text-gray-600 text-sm">Aguarde enquanto processamos o pedido...</p>
         </div>
@@ -366,7 +350,6 @@ ob_start();
         searchIcon: null,
         searchSpinner: null,
         loadingState: null,
-        emptyState: null,
         ordersTable: null,
         ordersCount: null,
         ordersTableBody: null
@@ -377,7 +360,6 @@ ob_start();
         cachedElements.searchIcon = document.getElementById('searchIcon');
         cachedElements.searchSpinner = document.getElementById('searchSpinner');
         cachedElements.loadingState = document.getElementById('loadingState');
-        cachedElements.emptyState = document.getElementById('emptyState');
         cachedElements.ordersTable = document.getElementById('ordersTable');
         cachedElements.ordersCount = document.getElementById('ordersCount');
         cachedElements.ordersTableBody = document.getElementById('ordersTableBody');
@@ -526,31 +508,89 @@ ob_start();
         displayOrders(ordersData);
     }
 
-    function loadOrders() {
+    function loadOrders(retryCount = 0) {
+        const maxRetries = 3;
+        const retryDelay = 2000; // 2 seconds
+
+        console.log('=== LOAD ORDERS DEBUG ===');
+        console.log('Retry count:', retryCount);
+        console.log('DOM elements check:');
+        console.log('- loadingState:', document.getElementById('loadingState'));
+        console.log('- errorMessage:', document.getElementById('errorMessage'));
+        console.log('- ordersTable:', document.getElementById('ordersTable'));
+
         document.getElementById('loadingState').classList.remove('hidden');
         document.getElementById('errorMessage').classList.add('hidden');
-        document.getElementById('emptyState').classList.add('hidden');
         document.getElementById('ordersTable').classList.add('hidden');
 
-        fetch('/orders/api')
-            .then(res => res.json())
+        console.log(`Loading orders... (attempt ${retryCount + 1}/${maxRetries + 1})`);
+        console.log('Making fetch request to /orders/api');
+
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            console.log('Request timed out after 30 seconds');
+            controller.abort();
+        }, 30000); // 30 second timeout
+
+        fetch('/orders/api', {
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(res => {
+                clearTimeout(timeoutId);
+                console.log('API response received:', res.status, res.statusText);
+                console.log('Response headers:', res.headers);
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                return res.json();
+            })
             .then(data => {
+                console.log('API data received:', data);
+                console.log('Data type:', typeof data);
+                console.log('Data success:', data.success);
+                console.log('Data orders length:', data.orders ? data.orders.length : 'undefined');
+
                 if (data.success) {
                     ordersData = data.orders;
+                    console.log(`Loaded ${ordersData.length} orders`);
 
                     // Build search index for fast searching
                     buildSearchIndex(ordersData);
 
                     displayOrders(ordersData);
-                } else showError(data.error || 'Erro ao carregar pedidos');
+                } else {
+                    console.error('API returned error:', data.error);
+                    showError(data.error || 'Erro ao carregar pedidos');
+                }
             })
-            .catch(() => showError('Erro de conexão. Verifique sua internet e tente novamente.'));
+            .catch(error => {
+                clearTimeout(timeoutId);
+                console.error('Failed to load orders:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+
+                if (error.name === 'AbortError') {
+                    console.error('Request timed out');
+                    showError('Tempo limite excedido. Tente novamente.');
+                } else if (retryCount < maxRetries) {
+                    console.log(`Retrying in ${retryDelay}ms...`);
+                    setTimeout(() => loadOrders(retryCount + 1), retryDelay);
+                } else {
+                    showError('Erro de conexão. Verifique sua internet e tente novamente.');
+                }
+            });
     }
 
     function displayOrders(orders) {
         // Use cached DOM elements for better performance
         const loadingState = cachedElements.loadingState;
-        const emptyState = cachedElements.emptyState;
         const ordersTable = cachedElements.ordersTable;
         const ordersCount = cachedElements.ordersCount;
         const tbody = cachedElements.ordersTableBody;
@@ -558,7 +598,6 @@ ob_start();
         loadingState.classList.add('hidden');
 
         if (!orders || orders.length === 0) {
-            emptyState.classList.remove('hidden');
             ordersTable.classList.add('hidden');
             // Reset pagination
             currentPage = 1;
@@ -574,7 +613,6 @@ ob_start();
 
         // Show/hide table based on results
         if (filtered.length === 0) {
-            emptyState.classList.remove('hidden');
             // Keep table headers visible, just clear the body
             tbody.innerHTML = '';
             // Reset pagination
@@ -585,7 +623,6 @@ ob_start();
             updatePaginationControls();
             return;
         } else {
-            emptyState.classList.add('hidden');
             ordersTable.classList.remove('hidden');
         }
 
@@ -670,13 +707,35 @@ ob_start();
                         </div>
                     </div>
                     ${checkAllItemsHaveReq(o.items) ? 
-                        `<button onclick="generateSticker('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                        `<div class="relative inline-block text-left">
+                            <button onclick="toggleStickerDropdown('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
                             <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
                             </svg>
                             <span class="hidden sm:inline">${appConfig.dev_mode ? 'Rótulo (DEV)' : 'Rótulo'}</span>
                             <span class="sm:hidden">${appConfig.dev_mode ? 'RÓT*' : 'RÓT'}</span>
-                        </button>` : 
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div id="stickerDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                <div class="py-1">
+                                    <button onclick="generateSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Baixar PDF
+                                    </button>
+                                    <button onclick="previewSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                        Visualizar PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>` : 
                         `<button disabled class="bg-gray-50 text-gray-400 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 cursor-not-allowed">
                             <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
@@ -684,6 +743,37 @@ ob_start();
                             <span class="hidden sm:inline">Rótulo</span>
                             <span class="sm:hidden">RÓT</span>
                         </button>`
+                    }
+                    ${order.ord_shipping_shipment_id ? 
+                        `<div class="relative inline-block text-left">
+                            <button onclick="toggleShippingLabelDropdown('${order.ord_id}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                </svg>
+                                <span class="hidden sm:inline">Etiqueta</span>
+                                <span class="sm:hidden">ETIQ</span>
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div id="shippingLabelDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                <div class="py-1">
+                                    <button onclick="generateShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Baixar PDF
+                                    </button>
+                                    <button onclick="previewShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                        Visualizar PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>` : ''
                     }
                     <button onclick="viewOrderDetails('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
                         <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1061,6 +1151,20 @@ ob_start();
         document.getElementById('loadingState').classList.add('hidden');
         document.getElementById('errorText').textContent = msg;
         document.getElementById('errorMessage').classList.remove('hidden');
+
+        // Add retry button if it doesn't exist
+        let retryButton = document.getElementById('retryButton');
+        if (!retryButton) {
+            retryButton = document.createElement('button');
+            retryButton.id = 'retryButton';
+            retryButton.className = 'mt-3 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-200';
+            retryButton.textContent = 'Tentar Novamente';
+            retryButton.onclick = () => {
+                document.getElementById('errorMessage').classList.add('hidden');
+                loadOrders();
+            };
+            document.getElementById('errorMessage').appendChild(retryButton);
+        }
     }
 
     function showErrorMessage(message) {
@@ -1208,18 +1312,70 @@ ob_start();
                     </div>
                 </div>
                 ${checkAllItemsHaveReq(items) ? 
-                    `<button onclick="generateSticker('${order.ord_id}')" class='bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
+                    `<div class="relative inline-block text-left">
+                        <button onclick="toggleStickerModalDropdown('${order.ord_id}')" class='bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
                         <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                             <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01'></path>
                         </svg>
-                        <span>${appConfig.dev_mode ? 'Gerar Rótulo (DEV)' : 'Gerar Rótulo'}</span>
-                    </button>` : 
+                            <span>${appConfig.dev_mode ? 'Rótulo (DEV)' : 'Rótulo'}</span>
+                            <svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'></path>
+                            </svg>
+                        </button>
+                        <div id="stickerModalDropdown-${order.ord_id}" class="hidden absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generateSticker('${order.ord_id}'); closeDropdown('stickerModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar Rótulo
+                                </button>
+                                <button onclick="previewSticker('${order.ord_id}'); closeDropdown('stickerModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar Rótulo
+                                </button>
+                            </div>
+                        </div>
+                    </div>` : 
                     `<button disabled class='bg-gray-50 text-gray-400 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 cursor-not-allowed shadow-md'>
                         <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                             <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01'></path>
                         </svg>
                         <span>Gerar Rótulo</span>
                     </button>`
+                }
+                ${order.ord_shipping_shipment_id ? 
+                    `<div class="relative inline-block text-left">
+                        <button onclick="toggleShippingLabelModalDropdown('${order.ord_id}')" class='bg-blue-100 hover:bg-blue-200 text-blue-700 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
+                            <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'></path>
+                            </svg>
+                            <span>Etiqueta</span>
+                            <svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'></path>
+                            </svg>
+                        </button>
+                        <div id="shippingLabelModalDropdown-${order.ord_id}" class="hidden absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generateShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar Etiqueta
+                                </button>
+                                <button onclick="previewShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar Etiqueta
+                                </button>
+                            </div>
+                        </div>
+                    </div>` : ''
                 }
             </div>
         </div>`;
@@ -1279,11 +1435,68 @@ ob_start();
         }
     }
 
+    function toggleStickerDropdown(orderId) {
+        const dropdown = document.getElementById(`stickerDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function toggleStickerModalDropdown(orderId) {
+        const dropdown = document.getElementById(`stickerModalDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function toggleShippingLabelDropdown(orderId) {
+        const dropdown = document.getElementById(`shippingLabelDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function toggleShippingLabelModalDropdown(orderId) {
+        const dropdown = document.getElementById(`shippingLabelModalDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
     function closeDropdown(dropdownId) {
         const dropdown = document.getElementById(dropdownId);
         if (dropdown) {
             dropdown.classList.add('hidden');
         }
+    }
+
+    function showLoadingOverlay(message = 'Gerando...') {
+        document.getElementById('loadingMessage').textContent = message;
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+    }
+
+    function hideLoadingOverlay() {
+        document.getElementById('loadingOverlay').classList.add('hidden');
     }
 
     function closeAllDropdowns() {
@@ -1294,6 +1507,22 @@ ob_start();
         // Close all prescription modal dropdowns
         const prescriptionModalDropdowns = document.querySelectorAll('[id^="prescriptionModalDropdown-"]');
         prescriptionModalDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close all sticker dropdowns
+        const stickerDropdowns = document.querySelectorAll('[id^="stickerDropdown-"]');
+        stickerDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close all sticker modal dropdowns
+        const stickerModalDropdowns = document.querySelectorAll('[id^="stickerModalDropdown-"]');
+        stickerModalDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close all shipping label dropdowns
+        const shippingLabelDropdowns = document.querySelectorAll('[id^="shippingLabelDropdown-"]');
+        shippingLabelDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close all shipping label modal dropdowns
+        const shippingLabelModalDropdowns = document.querySelectorAll('[id^="shippingLabelModalDropdown-"]');
+        shippingLabelModalDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
 
         // Close batch prescriptions dropdown
         const batchPrescriptionsDropdown = document.getElementById('batchPrescriptionsDropdown');
@@ -1316,8 +1545,8 @@ ob_start();
     });
 
     function generatePrescription(id) {
-        // Show loading overlay
-        document.getElementById('loadingOverlay').classList.remove('hidden');
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Gerando Receituário...');
 
         // Disable the button to prevent multiple clicks
         const button = event.target.closest('button');
@@ -1340,7 +1569,7 @@ ob_start();
             })
             .then(response => {
                 // Hide loading overlay
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideLoadingOverlay();
 
                 if (response.ok) {
                     // Check if response is PDF (content-type)
@@ -1376,7 +1605,7 @@ ob_start();
             })
             .catch(error => {
                 // Hide loading overlay
-                document.getElementById('loadingOverlay').classList.add('hidden');
+                hideLoadingOverlay();
 
                 console.error('Error generating prescription:', error);
                 showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
@@ -1668,19 +1897,32 @@ ob_start();
     }
 
     function generateSticker(id) {
-        const button = event.target.closest('button');
-        const originalHtml = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>Gerando...</span>`;
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Gerando Rótulos...');
 
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Gerando...</span>
+    `;
+
+        // Make the API call
         fetch('/orders/generate-sticker', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: `order_id=${id}`
             })
             .then(response => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
                 if (response.ok) {
                     // Check if response is PDF (content-type)
                     const contentType = response.headers.get('content-type');
@@ -1697,15 +1939,15 @@ ob_start();
                             document.body.removeChild(a);
 
                             // Show success message
-                            showSuccessMessage('Rótulo gerado e baixado com sucesso!');
+                            showSuccessMessage('Rótulos gerados e baixados com sucesso!');
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
-                                showSuccessMessage('Rótulo gerado com sucesso!');
+                                showSuccessMessage('Rótulos gerados com sucesso!');
                             } else {
-                                showErrorMessage(data.error || 'Erro ao gerar rótulo');
+                                showErrorMessage(data.error || 'Erro ao gerar rótulos');
                             }
                         });
                     }
@@ -1713,10 +1955,225 @@ ob_start();
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
             })
-            .catch(() => showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.'))
+            .catch(error => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+                console.error('Error generating sticker:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
             .finally(() => {
+                // Re-enable the button
                 button.disabled = false;
-                button.innerHTML = originalHtml;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function generateShippingLabel(id) {
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Gerando Etiqueta de Envio...');
+
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Gerando...</span>
+    `;
+
+        // Make the API call
+        fetch('/orders/generate-shipping-label', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and download
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `etiqueta_envio_${id}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+
+                            // Show success message
+                            showSuccessMessage('Etiqueta de envio gerada e baixada com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Etiqueta de envio gerada com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar etiqueta de envio');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                console.error('Error generating shipping label:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                // Re-enable the button
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function previewShippingLabel(id) {
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Visualizando Etiqueta de Envio...');
+
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Visualizando...</span>
+    `;
+
+        // Make the API call for preview
+        fetch('/orders/preview-shipping-label', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage('Etiqueta de envio visualizada com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Etiqueta de envio visualizada com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar etiqueta de envio');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+                console.error('Error previewing shipping label:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                // Re-enable button and restore original content
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function previewSticker(id) {
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Visualizando Rótulos...');
+
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Visualizando...</span>
+    `;
+
+        // Make the API call for preview
+        fetch('/orders/preview-sticker', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage('Rótulos visualizados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Rótulos visualizados com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar rótulos');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+                console.error('Error previewing sticker:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                // Re-enable button and restore original content
+                button.disabled = false;
+                button.innerHTML = originalContent;
             });
     }
 

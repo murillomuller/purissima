@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Core\Request;
 use App\Services\PurissimaApiService;
 use App\Services\TcpdfService;
+use GuzzleHttp\Client;
 
 class OrdersController extends BaseController
 {
@@ -604,6 +605,218 @@ class OrdersController extends BaseController
             return $this->json([
                 'success' => false,
                 'error' => 'Falha ao visualizar rótulos em lote: ' . $e->getMessage()
+            ], 500);
+        } finally {
+            // Restore error reporting settings
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
+        }
+    }
+
+    public function generateShippingLabel(Request $request)
+    {
+        try {
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order || !isset($order['order'])) {
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            $orderData = $order['order'];
+
+            // Check if ord_shipping_shipment_id is filled
+            if (empty($orderData['ord_shipping_shipment_id'])) {
+                return $this->json(['success' => false, 'error' => 'Shipping shipment ID is not available for this order'], 400);
+            }
+
+            // Make secure backend call to the shipping label API
+            $apiUrl = 'https://api.purissima.com/labels/lacre-preview.php';
+            $params = ['ord' => $orderId];
+
+            $client = new Client([
+                'timeout' => 30,
+                'verify' => false // For development - should be true in production
+            ]);
+
+            $response = $client->get($apiUrl, [
+                'query' => $params,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode === 200) {
+                $contentType = $response->getHeader('Content-Type')[0] ?? '';
+
+                // Set appropriate headers for PDF response
+                header('Content-Type: ' . $contentType);
+                header('Content-Disposition: attachment; filename="etiqueta_envio_' . $orderId . '.pdf"');
+                header('Cache-Control: no-cache, must-revalidate');
+                header('Pragma: no-cache');
+
+                // Output the PDF content directly
+                echo $response->getBody()->getContents();
+                exit;
+            } else {
+                $this->logger->error('Failed to generate shipping label', [
+                    'order_id' => $orderId,
+                    'status_code' => $statusCode,
+                    'response' => $response->getBody()->getContents()
+                ]);
+
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Failed to generate shipping label. Status: ' . $statusCode
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to generate shipping label', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao gerar etiqueta de envio: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function previewShippingLabel(Request $request)
+    {
+        try {
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order || !isset($order['order'])) {
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            $orderData = $order['order'];
+
+            // Check if ord_shipping_shipment_id is filled
+            if (empty($orderData['ord_shipping_shipment_id'])) {
+                return $this->json(['success' => false, 'error' => 'Shipping shipment ID is not available for this order'], 400);
+            }
+
+            // Make secure backend call to the shipping label API
+            $apiUrl = 'https://api.purissima.com/labels/lacre-preview.php';
+            $params = ['ord' => $orderId];
+
+            $client = new Client([
+                'timeout' => 30,
+                'verify' => false // For development - should be true in production
+            ]);
+
+            $response = $client->get($apiUrl, [
+                'query' => $params,
+                'http_errors' => false
+            ]);
+
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode === 200) {
+                $contentType = $response->getHeader('Content-Type')[0] ?? '';
+
+                // Set appropriate headers for PDF preview in browser
+                header('Content-Type: ' . $contentType);
+                header('Content-Disposition: inline; filename="etiqueta_envio_' . $orderId . '.pdf"');
+                header('Cache-Control: no-cache, must-revalidate');
+                header('Pragma: no-cache');
+
+                // Output the PDF content directly for preview
+                echo $response->getBody()->getContents();
+                exit;
+            } else {
+                $this->logger->error('Failed to preview shipping label', [
+                    'order_id' => $orderId,
+                    'status_code' => $statusCode,
+                    'response' => $response->getBody()->getContents()
+                ]);
+
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Failed to preview shipping label. Status: ' . $statusCode
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview shipping label', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao visualizar etiqueta de envio: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function previewSticker(Request $request)
+    {
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
+
+        try {
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order || !isset($order['order'])) {
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            $orderData = $order['order'];
+            $items = $order['items'] ?? [];
+
+            // Check if all items have req field (skip in dev mode)
+            $devMode = filter_var($_ENV['DEV_MODE'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
+
+            if (!$devMode) {
+                $allItemsHaveReq = true;
+                foreach ($items as $item) {
+                    if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                        $allItemsHaveReq = false;
+                        break;
+                    }
+                }
+
+                if (!$allItemsHaveReq) {
+                    return $this->json(['success' => false, 'error' => 'Todos os itens devem ter campo req preenchido'], 400);
+                }
+            } else {
+                $this->logger->info('DEV_MODE enabled: Skipping REQ field validation for rótulo preview', [
+                    'order_id' => $orderId
+                ]);
+            }
+
+            // This will output the PDF for preview in browser
+            $filename = $this->pdfService->previewStickerPdf($orderData, $items);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Sticker preview gerado com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview sticker', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao visualizar Sticker: ' . $e->getMessage()
             ], 500);
         } finally {
             // Restore error reporting settings
