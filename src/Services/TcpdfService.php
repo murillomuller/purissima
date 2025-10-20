@@ -1119,7 +1119,7 @@ class TcpdfService
     private function addHorizontalSticker($pdf, array $rotuloData, float $x, float $y, float $width = 100, float $height = 180)
     {
         // Determine color scheme based on product_name using ColorSchemeService
-        $productName = substituir($rotuloData['product_name']);
+        $productName = applyItemNameMappings($rotuloData['product_name']);
         $colorSchemeName = $this->colorSchemeService->getColorSchemeName($productName);
 
         // Cool debug logging with color scheme details
@@ -1204,12 +1204,13 @@ class TcpdfService
         $pdf->Cell($middleColumnWidth - 2, 4, $this->cleanText(mb_strtoupper($productName, 'UTF-8')), 0, 1, 'C');
         $currentY += 3;
 
-        // Product type
-        $productType = substituir($rotuloData['product_name']);
+        // Product type - get time from item name mappings
+        $mappingResult = getItemNameWithTime($rotuloData['product_name']);
+        $productType = $mappingResult['time'];
         try {
-            $pdf->SetFont('brandontextblack', '', 16);
+            $pdf->SetFont('brandontextblack', '', 29);
         } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', 'B', 16);
+            $pdf->SetFont('helvetica', 'B', 29);
         }
 
         // Wrap text to fit within the available width
@@ -1222,7 +1223,21 @@ class TcpdfService
             $pdf->Cell($maxWidth, 3, $line, 0, 1, 'C');
             $currentY += 6; // Move down for next line
         } // 3 units spacing from top of product type text
-        $currentY += 1.5;
+        $currentY += 6;
+
+        // Add dosage information under the time
+        try {
+            $pdf->SetFont('opensans', '', 7);
+        } catch (\Exception $e) {
+            $pdf->SetFont('helvetica', '', 7);
+        }
+        $pdf->SetXY($middleColumnX, $currentY);
+
+        // Get dosage text from DoseMapper and transform format
+        $productName = $rotuloData['product_name'] ?? '';
+        $dosageText = $this->doseMapper->getDosageTexCompletet($productName);
+        $pdf->Cell($middleColumnWidth - 2, 2, $this->cleanText($dosageText), 0, 1, 'C');
+        $currentY += 5;
 
 
         //Add Patient Name
@@ -1232,7 +1247,7 @@ class TcpdfService
         } catch (\Exception $e) {
             $pdf->SetFont('helvetica', 'B', 9);
         }
-        $pdf->SetXY($middleColumnX, $y + $height - 12);
+        $pdf->SetXY($middleColumnX, $y + $height - 9);
         $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText(mb_strtoupper($patientName, 'UTF-8')), 0, 1, 'C');
         $currentY += 4.5;
 
@@ -1240,7 +1255,7 @@ class TcpdfService
         $pdf->SetDrawColor($colorScheme['text'][0], $colorScheme['text'][1], $colorScheme['text'][2], $colorScheme['text'][3]);
         $lineWidth = $width * 0.2; // 30% of width
         $lineStartX = $x + ($width - $lineWidth) / 2; // Center the line
-        $pdf->Line($lineStartX, $y + $height - 7.5, $lineStartX + $lineWidth, $y + $height - 7.5);
+        $pdf->Line($lineStartX, $y + $height - 4.5, $lineStartX + $lineWidth, $y + $height - 4.5);
         $currentY += 0;
 
         //Add Dr Fran Castro name (middle column)
@@ -1249,19 +1264,11 @@ class TcpdfService
         } catch (\Exception $e) {
             $pdf->SetFont('helvetica', '', 6.5);
         }
-        $pdf->SetXY($middleColumnX, $y + $height - 7);
+        $pdf->SetXY($middleColumnX, $y + $height - 4);
         $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('POR DRA. FRAN CASTRO'), 0, 1, 'C');
         $currentY += 3.5;
 
-        //Add Dr Fran Castro name (middle column)
-        try {
-            $pdf->SetFont('opensans', '', 5);
-        } catch (\Exception $e) {
-            $pdf->SetFont('helvetica', '', 5);
-        }
-        $pdf->SetXY($middleColumnX, $y + $height - 4);
-        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText('CRF 32678362836Q83'), 0, 1, 'C');
-        $currentY += 4;
+
 
         // Right column - Content after DRA. FRAN CASTRO
         $rightColumnY = $y + 2; // Start at same level as other columns (at the beginning)
@@ -1269,7 +1276,7 @@ class TcpdfService
         $isWhiteText = ($colorScheme['text'][0] == 0 && $colorScheme['text'][1] == 0 &&
             $colorScheme['text'][2] == 0 && $colorScheme['text'][3] == 0);
         if ($productType === 'DIA') {
-            $svgFileName = $isWhiteText ? 'icon-day-white.svg' : 'icon-day.svg';
+            $svgFileName = $isWhiteText ? 'icon-day-white.svg' : 'icon-day-beige.svg';
         } else {
             $svgFileName = $isWhiteText ? 'icon-night-white.svg' : 'icon-night-beige.svg';
         }
@@ -1480,7 +1487,7 @@ class TcpdfService
         $currentY += 3;
 
         // Product type
-        $productType = substituir($rotuloData['product_type']);
+        $productType = applyItemNameMappings($rotuloData['product_type']);
         try {
             $pdf->SetFont('brandontextblack', '', 29);
         } catch (\Exception $e) {

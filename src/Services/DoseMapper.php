@@ -150,91 +150,139 @@ class DoseMapper
         'my baby' => 1,
         'my kids' => 1,
 
-        // ===== SYMPTOM-BASED PRODUCTS =====
-        // Ansiedade (Anxiety)
+        // ===== HEALTH CATEGORIES BASED ON DOSE INFORMATION =====
+
+        // EQUILÍBRIO EMOCIONAL (Emotional Balance)
         'ansiedade - leve' => 1,
         'ansiedade - moderada' => 2,
         'ansiedade - severa' => 3,
+        'equilíbrio emocional' => 1,
+        'equilíbrio emocional - leve' => 1,
+        'equilíbrio emocional - moderado' => 2,
+        'equilíbrio emocional - severo' => 3,
 
-        // Dermatites (Dermatitis)
-        'dermatites - leve' => 1,
-        'dermatites - moderado' => 2,
-        'dermatites - severo' => 3,
-
-        // Equilíbrio do Colesterol (Cholesterol Balance)
-        'equilíbrio do colesterol - leve' => 1,
-        'equilíbrio do colesterol - moderado' => 2,
-        'equilíbrio do colesterol - grave' => 3,
-
-        // Funções Cognitivas (Cognitive Functions)
-        'funções cognitivas - leve' => 1,
-        'funções cognitivas - moderado' => 2,
-        'funções cognitivas - severo' => 3,
-
-        // Hipotiroidismo (Hypothyroidism)
-        'hipotiroidismo - leve' => 1,
-        'hipotiroidismo - moderado' => 2,
-        'hipotiroidismo - severo' => 3,
-
-        // Imunidade Fraca (Weak Immunity)
+        // IMUNIDADE EFICIENTE (Efficient Immunity)
         'imunidade fraca - leve' => 1,
         'imunidade fraca - moderada' => 2,
         'imunidade fraca - severa' => 3,
-
         'imunidade - leve' => 1,
         'imunidade - moderada' => 2,
         'imunidade - severa' => 3,
+        'imunidade eficiente' => 2,
+        'imunidade eficiente - leve' => 1,
+        'imunidade eficiente - moderada' => 2,
+        'imunidade eficiente - severa' => 3,
 
-        // Lipedema
-        'lipedema - leve' => 1,
-        'lipedema - moderado' => 2,
-        'lipedema - severo' => 3,
+        // SONO REGENERATIVO (Regenerative Sleep)
+        'problemas de sono - leve' => 1,
+        'problemas de sono - moderado' => 2,
+        'problemas de sono - severo' => 3,
+        'sono regenerativo' => 2,
+        'sono regenerativo - leve' => 1,
+        'sono regenerativo - moderado' => 2,
+        'sono regenerativo - severo' => 3,
 
-        // Má digestão (Poor Digestion)
+        // SAÚDE ARTICULAR (Joint Health)
+        'problemas articulares - leve' => 1,
+        'problemas articulares - moderado' => 2,
+        'problemas articulares - severo' => 3,
+        'saúde articular' => 2,
+        'saúde articular - leve' => 1,
+        'saúde articular - moderado' => 2,
+        'saúde articular - severo' => 3,
+
+        // SAÚDE DA MULHER (Women's Health)
+        'problemas femininos - leve' => 1,
+        'problemas femininos - moderado' => 2,
+        'problemas femininos - grave' => 3,
+
+        // SAÚDE DO HOMEM (Men's Health)
+        'problemas masculinos - leve' => 1,
+        'problemas masculinos - moderado' => 2,
+        'problemas masculinos - severo' => 3,
+
+        // ENZIMAS DIGESTIVAS (Digestive Enzymes)
         'má digestão - leve' => 1,
         'má digestão - moderado' => 2,
         'má digestão - severo' => 3,
         'má digestão 2 - leve' => 1,
         'má digestão 2 - moderado' => 2,
         'má digestão 2 - severo' => 3,
+        'enzimas digestivas' => 1,
+        'enzimas digestivas - leve' => 1,
+        'enzimas digestivas - moderado' => 2,
+        'enzimas digestivas - severo' => 3,
 
-        // Perda de cabelos (Hair Loss)
-        'perda de cabelos - leve' => 1,
-        'perda de cabelos - moderado' => 2,
-        'perda de cabelos - severo' => 3,
-
-        // Perfil Glicêmico (Glycemic Profile)
-        'perfil glicêmico - leve' => 1,
-        'perfil glicêmico - moderado' => 2,
-
-        // Problemas Articulares (Joint Problems)
-        'problemas articulares - leve' => 1,
-        'problemas articulares - moderado' => 2,
-        'problemas articulares - severo' => 3,
-
-        // Problemas Femininos (Women's Problems)
-        'problemas femininos - leve' => 1,
-        'problemas femininos - moderado' => 2,
-        'problemas femininos - grave' => 3,
-
-        // Problemas Intestinais (Intestinal Problems)
+        // EQUILÍBRIO INTESTINAL (Intestinal Balance)
         'problemas intestinais - leve' => 1,
         'problemas intestinais - moderado' => 2,
         'problemas intestinais - severo' => 3,
+        'equilíbrio intestinal' => 1,
+        'equilíbrio intestinal - leve' => 1,
+        'equilíbrio intestinal - moderado' => 2,
+        'equilíbrio intestinal - severo' => 3,
 
-        // Problemas Masculinos (Men's Problems)
-        'problemas masculinos - leve' => 1,
-        'problemas masculinos - moderado' => 2,
-        'problemas masculinos - severo' => 3,
+        // AUXÍLIO PARA LIPEDEMA (Lipedema Support)
+        'lipedema - leve' => 1,
+        'lipedema - moderado' => 2,
+        'lipedema - severo' => 3,
+        'auxílio para lipedema' => 1,
+        'auxílio para lipedema - leve' => 1,
+        'auxílio para lipedema - moderado' => 2,
+        'auxílio para lipedema - severo' => 3,
 
-        // Problemas de Sono (Sleep Problems)
-        'problemas de sono - leve' => 1,
-        'problemas de sono - moderado' => 2,
-        'problemas de sono - severo' => 3,
+        // CONTROLE DA DERMATITE (Dermatitis Control)
+        'dermatites - leve' => 1,
+        'dermatites - moderado' => 2,
+        'dermatites - severo' => 3,
+        'controle da dermatite' => 2,
+        'controle da dermatite - leve' => 1,
+        'controle da dermatite - moderado' => 2,
+        'controle da dermatite - severo' => 3,
 
-        // Saúde cardiovascular (Cardiovascular Health)
+        // MEMÓRIA E COGNIÇÃO (Memory and Cognition)
+        'funções cognitivas - leve' => 1,
+        'funções cognitivas - moderado' => 2,
+        'funções cognitivas - severo' => 3,
+        'memória e cognição' => 3,
+        'memória e cognição - leve' => 1,
+        'memória e cognição - moderado' => 2,
+        'memória e cognição - severo' => 3,
+
+        // CONTROLE GLICÊMICO (Glycemic Control)
+        'perfil glicêmico - leve' => 1,
+        'perfil glicêmico - moderado' => 2,
+        'controle glicêmico' => 1,
+        'controle glicêmico - leve' => 1,
+        'controle glicêmico - moderado' => 2,
+        'controle glicêmico - severo' => 3,
+
+        // SAÚDE CARDIOVASCULAR (Cardiovascular Health)
         'saúde cardiovascular - leve' => 1,
-        'saúde cardiovascular - moderado' => 2
+        'saúde cardiovascular - moderado' => 2,
+
+        // EQUILÍBRIO DO COLESTEROL (Cholesterol Balance)
+        'equilíbrio do colesterol - leve' => 1,
+        'equilíbrio do colesterol - moderado' => 2,
+        'equilíbrio do colesterol - grave' => 3,
+
+        // ANTIQUEDA CAPILAR (Anti-Hair Loss)
+        'perda de cabelos - leve' => 1,
+        'perda de cabelos - moderado' => 2,
+        'perda de cabelos - severo' => 3,
+        'antiqueda capilar' => 1,
+        'antiqueda capilar - leve' => 1,
+        'antiqueda capilar - moderado' => 2,
+        'antiqueda capilar - severo' => 3,
+
+        // AUXÍLIO AO HIPOTIREOIDISMO (Hypothyroidism Support)
+        'hipotiroidismo - leve' => 1,
+        'hipotiroidismo - moderado' => 2,
+        'hipotiroidismo - severo' => 3,
+        'auxílio ao hipotireoidismo' => 1,
+        'auxílio ao hipotireoidismo - leve' => 1,
+        'auxílio ao hipotireoidismo - moderado' => 2,
+        'auxílio ao hipotireoidismo - severo' => 3
     ];
 
     public function setMapping(string $itemName, int $doseNumber): void
