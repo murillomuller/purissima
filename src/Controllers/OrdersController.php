@@ -824,4 +824,317 @@ class OrdersController extends BaseController
             ini_set('display_errors', $oldDisplayErrors);
         }
     }
+
+    public function generateLastDayReceituarios(Request $request)
+    {
+        try {
+            // Get yesterday's date
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+            $this->logger->info('Generating receituarios for last day', [
+                'date' => $yesterday
+            ]);
+
+            // Get all orders
+            $allOrders = $this->purissimaApi->getOrders();
+
+            // Filter orders from yesterday
+            $yesterdayOrders = [];
+            foreach ($allOrders as $orderId => $orderData) {
+                if (isset($orderData['order']['created_at'])) {
+                    $orderDate = date('Y-m-d', strtotime($orderData['order']['created_at']));
+                    if ($orderDate === $yesterday) {
+                        $yesterdayOrders[] = [
+                            'order' => $orderData['order'],
+                            'items' => $orderData['items'] ?? []
+                        ];
+                    }
+                }
+            }
+
+            if (count($yesterdayOrders) === 0) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Nenhum pedido encontrado para ontem (' . $yesterday . ')'
+                ], 404);
+            }
+
+            $this->logger->info('Found orders for yesterday', [
+                'date' => $yesterday,
+                'count' => count($yesterdayOrders)
+            ]);
+
+            // Check if preview mode is requested
+            $previewMode = filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN);
+
+            // Generate batch prescription PDF for yesterday's orders
+            $filename = $this->pdfService->createBatchPrescriptionPdf($yesterdayOrders, $previewMode);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Receituários de ontem gerados com sucesso',
+                'orders_count' => count($yesterdayOrders),
+                'date' => $yesterday
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to generate last day receituarios', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao gerar receituários de ontem: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function previewLastDayReceituarios(Request $request)
+    {
+        try {
+            // Get yesterday's date
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+            $this->logger->info('Previewing receituarios for last day', [
+                'date' => $yesterday
+            ]);
+
+            // Get all orders
+            $allOrders = $this->purissimaApi->getOrders();
+
+            // Filter orders from yesterday
+            $yesterdayOrders = [];
+            foreach ($allOrders as $orderId => $orderData) {
+                if (isset($orderData['order']['created_at'])) {
+                    $orderDate = date('Y-m-d', strtotime($orderData['order']['created_at']));
+                    if ($orderDate === $yesterday) {
+                        $yesterdayOrders[] = [
+                            'order' => $orderData['order'],
+                            'items' => $orderData['items'] ?? []
+                        ];
+                    }
+                }
+            }
+
+            if (count($yesterdayOrders) === 0) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Nenhum pedido encontrado para ontem (' . $yesterday . ')'
+                ], 404);
+            }
+
+            $this->logger->info('Found orders for yesterday preview', [
+                'date' => $yesterday,
+                'count' => count($yesterdayOrders)
+            ]);
+
+            // Generate batch prescription PDF preview for yesterday's orders
+            $filename = $this->pdfService->previewBatchPrescriptionPdf($yesterdayOrders);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Pré-visualização dos receituários de ontem gerada com sucesso',
+                'orders_count' => count($yesterdayOrders),
+                'date' => $yesterday
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview last day receituarios', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao visualizar receituários de ontem: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getLastDayOrdersForLabels(Request $request)
+    {
+        try {
+            // Get yesterday's date
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+            $this->logger->info('Getting yesterday orders for labels', [
+                'date' => $yesterday
+            ]);
+
+            // Get all orders
+            $allOrders = $this->purissimaApi->getOrders();
+
+            // Filter orders from yesterday and check REQ fields
+            $ordersWithReq = [];
+            $ordersWithoutReq = [];
+
+            foreach ($allOrders as $orderId => $orderData) {
+                if (isset($orderData['order']['created_at'])) {
+                    $orderDate = date('Y-m-d', strtotime($orderData['order']['created_at']));
+                    if ($orderDate === $yesterday) {
+                        $order = $orderData['order'];
+                        $items = $orderData['items'] ?? [];
+
+                        // Check if all items have REQ field filled
+                        $allItemsHaveReq = true;
+                        $itemsWithoutReq = [];
+
+                        foreach ($items as $item) {
+                            if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                                $allItemsHaveReq = false;
+                                $itemsWithoutReq[] = $item['itm_name'] ?? 'Item sem nome';
+                            }
+                        }
+
+                        $orderInfo = [
+                            'order_id' => $order['ord_id'],
+                            'customer_name' => $order['usr_name'],
+                            'customer_email' => $order['usr_email'],
+                            'items_count' => count($items),
+                            'created_at' => $order['created_at']
+                        ];
+
+                        if ($allItemsHaveReq) {
+                            $ordersWithReq[] = $orderInfo;
+                        } else {
+                            $orderInfo['missing_req_items'] = $itemsWithoutReq;
+                            $ordersWithoutReq[] = $orderInfo;
+                        }
+                    }
+                }
+            }
+
+            return $this->json([
+                'success' => true,
+                'date' => $yesterday,
+                'orders_with_req' => $ordersWithReq,
+                'orders_without_req' => $ordersWithoutReq,
+                'total_orders' => count($ordersWithReq) + count($ordersWithoutReq),
+                'can_generate' => count($ordersWithReq) > 0
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get last day orders for labels', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao obter pedidos de ontem: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function generateLastDayLabels(Request $request)
+    {
+        // Suppress error output to prevent "headers already sent" error
+        $oldErrorReporting = error_reporting(0);
+        $oldDisplayErrors = ini_set('display_errors', 0);
+
+        try {
+            // Get yesterday's date
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+            $this->logger->info('Generating labels for last day', [
+                'date' => $yesterday
+            ]);
+
+            // Get all orders
+            $allOrders = $this->purissimaApi->getOrders();
+
+            // Filter orders from yesterday that have all REQ fields filled
+            $validOrders = [];
+            foreach ($allOrders as $orderId => $orderData) {
+                if (isset($orderData['order']['created_at'])) {
+                    $orderDate = date('Y-m-d', strtotime($orderData['order']['created_at']));
+                    if ($orderDate === $yesterday) {
+                        $order = $orderData['order'];
+                        $items = $orderData['items'] ?? [];
+
+                        // Check if all items have REQ field filled
+                        $allItemsHaveReq = true;
+                        foreach ($items as $item) {
+                            if (!isset($item['req']) || trim((string)$item['req']) === '') {
+                                $allItemsHaveReq = false;
+                                break;
+                            }
+                        }
+
+                        if ($allItemsHaveReq) {
+                            $validOrders[] = $orderId;
+                        }
+                    }
+                }
+            }
+
+            if (count($validOrders) === 0) {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Nenhum pedido válido encontrado para ontem (todos os itens devem ter campo REQ preenchido)'
+                ], 404);
+            }
+
+            // Get batch options from request
+            $options = [
+                'page_format' => $request->get('page_format', 'A4'),
+                'orientation' => $request->get('orientation', 'P'),
+                'margin' => (float) $request->get('margin', 5),
+                'spacing' => (float) $request->get('spacing', 2),
+                'group_by_type' => filter_var($request->get('group_by_type', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'optimize_layout' => filter_var($request->get('optimize_layout', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'preview_mode' => filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN),
+            ];
+
+            // Collect all items with their associated order data
+            $allItemsWithOrderData = [];
+
+            foreach ($validOrders as $orderId) {
+                try {
+                    $order = $this->purissimaApi->getOrderById($orderId);
+                    if ($order && isset($order['order'])) {
+                        $orderData = $order['order'];
+                        $items = $order['items'] ?? [];
+
+                        foreach ($items as $item) {
+                            // Store item with its associated order data
+                            $allItemsWithOrderData[] = [
+                                'item' => $item,
+                                'order_data' => $orderData
+                            ];
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $this->logger->warning('Skipping order during last day label generation', [
+                        'order_id' => $orderId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            if (count($allItemsWithOrderData) === 0) {
+                return $this->json(['success' => false, 'error' => 'Nenhum item válido encontrado para geração de rótulos'], 404);
+            }
+
+            // This will output the PDF directly to browser and log the download
+            $filename = $this->pdfService->createBatchLabelsPdf($allItemsWithOrderData, $options);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Rótulos de ontem gerados com sucesso',
+                'orders_count' => count($validOrders),
+                'date' => $yesterday
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to generate last day labels', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao gerar rótulos de ontem: ' . $e->getMessage()
+            ], 500);
+        } finally {
+            // Restore error reporting settings
+            error_reporting($oldErrorReporting);
+            ini_set('display_errors', $oldDisplayErrors);
+        }
+    }
 }

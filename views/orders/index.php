@@ -8,7 +8,45 @@ ob_start();
 <div class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
     <!-- Page Content -->
     <div class="px-2 sm:px-4 lg:px-8 py-4 sm:py-6 max-w-full">
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end mb-4 sm:mb-6 gap-3 sm:gap-0">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end mb-4 sm:mb-6 gap-3 sm:gap-3">
+            <!-- Last Day Receituarios Button -->
+            <div class="relative inline-block text-left">
+                <button onclick="toggleLastDayReceituariosDropdown()"
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2 group w-full sm:w-auto">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="text-sm sm:text-base">Receituários de Ontem</span>
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                <div id="lastDayReceituariosDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                    <div class="py-1">
+                        <button onclick="generateLastDayReceituarios()" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Baixar PDF
+                        </button>
+                        <button onclick="previewLastDayReceituarios()" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                            <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                            Visualizar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Last Day Labels Button -->
+            <button onclick="showLastDayLabelsModal()"
+                class="bg-orange-600 hover:bg-orange-700 text-white px-4 sm:px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2 group w-full sm:w-auto">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
+                <span class="text-sm sm:text-base">Rótulos de Ontem</span>
+            </button>
             <!-- Action Button -->
             <button onclick="refreshOrders()"
                 class="bg-primary hover:bg-secondary text-white px-4 sm:px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center space-x-2 group w-full sm:w-auto">
@@ -263,6 +301,28 @@ ob_start();
             </button>
         </div>
         <div id="orderDetails" class="space-y-4 sm:space-y-6"></div>
+    </div>
+</div>
+
+<!-- Last Day Labels Modal -->
+<div id="lastDayLabelsModal" class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-2 sm:top-10 mx-auto p-3 sm:p-5 border w-11/12 sm:w-10/12 md:w-3/4 lg:w-2/3 xl:w-1/2 shadow-2xl rounded-xl bg-white max-h-[95vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
+                <h3 class="text-lg sm:text-xl lg:text-2xl font-bold text-orange-600 truncate">Rótulos de Ontem</h3>
+            </div>
+            <button onclick="closeLastDayLabelsModal()" class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-lg hover:bg-gray-100 flex-shrink-0">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="lastDayLabelsContent" class="space-y-4 sm:space-y-6">
+            <!-- Content will be loaded here -->
+        </div>
     </div>
 </div>
 
@@ -644,7 +704,18 @@ ob_start();
         paginatedOrders.forEach(o => {
             const order = o.order;
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50 transition-colors duration-200';
+            tr.className = 'hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer';
+            tr.onclick = (e) => {
+                // Don't trigger if clicking on checkboxes, buttons, or dropdowns
+                if (e.target.type === 'checkbox' ||
+                    e.target.closest('button') ||
+                    e.target.closest('.relative') ||
+                    e.target.closest('input') ||
+                    e.target.closest('svg')) {
+                    return;
+                }
+                viewOrderDetails(order.ord_id);
+            };
             const isSelected = globalSelectedIds.has(order.ord_id.toString());
             tr.innerHTML = `
             <td class="px-2 sm:px-4 py-3 sm:py-4">
@@ -775,16 +846,12 @@ ob_start();
                             </div>
                         </div>` : ''
                     }
-                    <button onclick="viewOrderDetails('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
+                    <div class="flex items-center justify-center ml-2">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
                         </svg>
-                        <span class="hidden sm:inline">Detalhes</span>
-                        <span class="sm:hidden">VER</span>
-                    </button>
+                    </div>
                 </div>
             </td>`;
             fragment.appendChild(tr);
@@ -1435,6 +1502,18 @@ ob_start();
         }
     }
 
+    function toggleLastDayReceituariosDropdown() {
+        const dropdown = document.getElementById('lastDayReceituariosDropdown');
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
     function toggleStickerDropdown(orderId) {
         const dropdown = document.getElementById(`stickerDropdown-${orderId}`);
         const isHidden = dropdown.classList.contains('hidden');
@@ -1534,6 +1613,12 @@ ob_start();
         const batchLabelsDropdown = document.getElementById('batchLabelsDropdown');
         if (batchLabelsDropdown) {
             batchLabelsDropdown.classList.add('hidden');
+        }
+
+        // Close last day receituarios dropdown
+        const lastDayReceituariosDropdown = document.getElementById('lastDayReceituariosDropdown');
+        if (lastDayReceituariosDropdown) {
+            lastDayReceituariosDropdown.classList.add('hidden');
         }
     }
 
@@ -2219,6 +2304,308 @@ ob_start();
             input.style.opacity = '1';
         });
     });
+
+    // Last Day Receituarios Functions
+    function generateLastDayReceituarios() {
+        // Close dropdown
+        closeDropdown('lastDayReceituariosDropdown');
+
+        // Show confirmation dialog
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toLocaleDateString('pt-BR');
+
+        if (!confirm(`Deseja gerar todos os receituários de ontem (${yesterdayStr})?`)) {
+            return;
+        }
+
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/generate-last-day-receituarios', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'preview=false'
+            })
+            .then(response => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and download
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `receituarios_ontem_${yesterday.toISOString().slice(0,10)}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+
+                            // Show success message
+                            showSuccessMessage('Receituários de ontem gerados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage(`Receituários de ontem gerados com sucesso! (${data.orders_count} pedidos)`);
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar receituários de ontem');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error generating last day receituarios:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    function previewLastDayReceituarios() {
+        // Close dropdown
+        closeDropdown('lastDayReceituariosDropdown');
+
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/preview-last-day-receituarios', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: ''
+            })
+            .then(response => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage('Receituários de ontem visualizados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Receituários de ontem visualizados com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar receituários de ontem');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error previewing last day receituarios:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    // Last Day Labels Modal Functions
+    function showLastDayLabelsModal() {
+        document.getElementById('lastDayLabelsModal').classList.remove('hidden');
+        loadLastDayOrdersForLabels();
+    }
+
+    function closeLastDayLabelsModal() {
+        document.getElementById('lastDayLabelsModal').classList.add('hidden');
+    }
+
+    function loadLastDayOrdersForLabels() {
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/last-day-orders-for-labels', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (data.success) {
+                    displayLastDayOrdersData(data);
+                } else {
+                    showErrorMessage(data.error || 'Erro ao carregar pedidos de ontem');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error loading last day orders:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    function displayLastDayOrdersData(data) {
+        const content = document.getElementById('lastDayLabelsContent');
+
+        content.innerHTML = `
+            <div class="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-4 mb-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">Resumo dos Pedidos de Ontem (${data.date})</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>Total de pedidos: ${data.total_orders}</p>
+                            <p>Pedidos com REQ preenchido: ${data.orders_with_req.length}</p>
+                            <p>Pedidos sem REQ: ${data.orders_without_req.length}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            ${data.orders_with_req.length > 0 ? `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <h4 class="text-lg font-semibold text-green-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Pedidos Prontos para Rótulos (${data.orders_with_req.length})
+                    </h4>
+                    <div class="space-y-2">
+                        ${data.orders_with_req.map(order => `
+                            <div class="bg-white border border-green-200 rounded-lg p-3 flex justify-between items-center">
+                                <div>
+                                    <span class="font-semibold text-gray-900">#${order.order_id}</span>
+                                    <span class="text-gray-600 ml-2">${order.customer_name}</span>
+                                    <span class="text-sm text-gray-500 ml-2">(${order.items_count} itens)</span>
+                                </div>
+                                <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">REQ OK</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            ${data.orders_without_req.length > 0 ? `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <h4 class="text-lg font-semibold text-red-800 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        Pedidos com REQ Incompleto (${data.orders_without_req.length})
+                    </h4>
+                    <div class="space-y-2">
+                        ${data.orders_without_req.map(order => `
+                            <div class="bg-white border border-red-200 rounded-lg p-3">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <span class="font-semibold text-gray-900">#${order.order_id}</span>
+                                        <span class="text-gray-600 ml-2">${order.customer_name}</span>
+                                        <span class="text-sm text-gray-500 ml-2">(${order.items_count} itens)</span>
+                                    </div>
+                                    <span class="text-xs text-red-600 bg-red-100 px-2 py-1 rounded-full">REQ INCOMPLETO</span>
+                                </div>
+                                <div class="text-sm text-red-700">
+                                    <p class="font-medium">Itens sem REQ:</p>
+                                    <ul class="list-disc list-inside mt-1">
+                                        ${order.missing_req_items.map(item => `<li>${item}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button onclick="closeLastDayLabelsModal()" class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors duration-200">
+                    Cancelar
+                </button>
+                ${data.can_generate ? `
+                    <button onclick="generateLastDayLabels()" class="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold transition-colors duration-200 flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span>Gerar Rótulos (${data.orders_with_req.length} pedidos)</span>
+                    </button>
+                ` : `
+                    <button disabled class="px-6 py-2 bg-gray-300 text-gray-500 rounded-lg font-semibold cursor-not-allowed">
+                        Nenhum pedido válido
+                    </button>
+                `}
+            </div>
+        `;
+    }
+
+    function generateLastDayLabels() {
+        closeLastDayLabelsModal();
+
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+
+        fetch('/orders/generate-last-day-labels', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'preview=false'
+            })
+            .then(response => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and download
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `rotulos_ontem_${new Date().toISOString().slice(0,10)}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+
+                            // Show success message
+                            showSuccessMessage('Rótulos de ontem gerados com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage(`Rótulos de ontem gerados com sucesso! (${data.orders_count} pedidos)`);
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar rótulos de ontem');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                console.error('Error generating last day labels:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
 </script>
 
 <?php

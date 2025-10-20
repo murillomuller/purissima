@@ -56,5 +56,13 @@ $router->post('/orders/preview-shipping-label', [OrdersController::class, 'previ
 // Sticker preview route
 $router->post('/orders/preview-sticker', [OrdersController::class, 'previewSticker']);
 
+// Last day receituarios routes
+$router->post('/orders/generate-last-day-receituarios', [OrdersController::class, 'generateLastDayReceituarios']);
+$router->post('/orders/preview-last-day-receituarios', [OrdersController::class, 'previewLastDayReceituarios']);
+
+// Last day labels routes
+$router->get('/orders/last-day-orders-for-labels', [OrdersController::class, 'getLastDayOrdersForLabels']);
+$router->post('/orders/generate-last-day-labels', [OrdersController::class, 'generateLastDayLabels']);
+
 // Handle the request
 $app->run($router);
