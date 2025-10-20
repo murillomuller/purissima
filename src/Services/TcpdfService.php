@@ -814,10 +814,8 @@ class TcpdfService
         // Apply background and border with rounded corners
         $pdf->RoundedRect($x, $y, $width, $finalHeight, 2, '1111', 'F');
 
-        // Set border color and width
-        $pdf->SetDrawColor(0, 100, 0, 0); // Bright green CMYK
-        $pdf->SetLineWidth(0.200); // 1pt border (0.353mm at 300 DPI)
-        $pdf->RoundedRect($x, $y, $width, $finalHeight, 2, '1111');
+        // Add CutContour for Versaworks cutting (includes border drawing)
+        $this->addCutContour($pdf, $x, $y, $width, $finalHeight, 2);
 
         $currentY = $y + 3;
 
@@ -1152,10 +1150,8 @@ class TcpdfService
         // Apply background and border with rounded corners
         $pdf->RoundedRect($x, $y, $width, $height, 2, '1111', 'F');
 
-        // Set border color and width
-        $pdf->SetDrawColor(0, 100, 0, 0); // Bright green CMYK
-        $pdf->SetLineWidth(0.200); // 1pt border (0.353mm at 300 DPI)
-        $pdf->RoundedRect($x, $y, $width, $height, 2, '1111');
+        // Add CutContour for Versaworks cutting (includes border drawing)
+        $this->addCutContour($pdf, $x, $y, $width, $height, 2);
 
         $currentY = $y + 2;
 
@@ -1427,10 +1423,8 @@ class TcpdfService
         // Apply background and border with rounded corners
         $pdf->RoundedRect($x, $y, $width, $height, 2, '1111', 'F');
 
-        // Set border color and width
-        $pdf->SetDrawColor(0, 100, 0, 0); // Bright green CMYK
-        $pdf->SetLineWidth(0.200); // 1pt border (0.353mm at 300 DPI)
-        $pdf->RoundedRect($x, $y, $width, $height, 2, '1111');
+        // Add CutContour for Versaworks cutting (includes border drawing)
+        $this->addCutContour($pdf, $x, $y, $width, $height, 2);
 
         $currentY = $y + 2;
 
@@ -4876,5 +4870,28 @@ class TcpdfService
         }
 
         return false;
+    }
+
+    /**
+     * Add CutContour path for Versaworks cutting
+     * This method creates a cutting path that Versaworks can recognize for automated cutting
+     * 
+     * @param TCPDF $pdf The PDF object
+     * @param float $x X position
+     * @param float $y Y position  
+     * @param float $width Width of the contour
+     * @param float $height Height of the contour
+     * @param float $radius Corner radius for rounded rectangles
+     * @return void
+     */
+    private function addCutContour(TCPDF $pdf, float $x, float $y, float $width, float $height, float $radius = 2): void
+    {
+        // Define CutContour spot color for Versaworks recognition
+        $pdf->AddSpotColor('CutContour', 0, 100, 0, 0, false);
+        $pdf->SetDrawSpotColor('CutContour'); // Use standard CMYK color for drawing
+        $pdf->SetLineWidth(0.5);
+
+        // Create the cutting path as a rounded rectangle
+        $pdf->RoundedRect($x, $y, $width, $height, $radius, '1111');
     }
 }
