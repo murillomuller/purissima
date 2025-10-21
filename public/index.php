@@ -5,6 +5,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use App\Core\Application;
 use App\Core\Router;
 use App\Controllers\OrdersController;
+use App\Controllers\ProductionController;
 
 // Load environment variables
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
@@ -63,6 +64,13 @@ $router->post('/orders/preview-last-day-receituarios', [OrdersController::class,
 // Last day labels routes
 $router->get('/orders/last-day-orders-for-labels', [OrdersController::class, 'getLastDayOrdersForLabels']);
 $router->post('/orders/generate-last-day-labels', [OrdersController::class, 'generateLastDayLabels']);
+
+// Production routes
+$router->get('/production', [ProductionController::class, 'index']);
+$router->get('/api/production', [ProductionController::class, 'getProductionData']);
+$router->post('/api/production/update', [ProductionController::class, 'updateProduction']);
+$router->post('/api/production/remove-orders', [ProductionController::class, 'removeOrders']);
+$router->post('/api/production/restore-orders', [ProductionController::class, 'restoreOrders']);
 
 // Handle the request
 $app->run($router);

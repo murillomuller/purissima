@@ -1713,6 +1713,7 @@ class TcpdfService
             'rotated' => $rotuloData['rotated'] ?? false
         ]);
 
+
         // Update the rotulo data with the color scheme type
         $rotuloData['color_scheme_type'] = $colorSchemeType;
 
@@ -1764,6 +1765,16 @@ class TcpdfService
                     break;
             }
         }
+
+        // Add debug text showing column number (x,y coordinates) - positioned on top of everything
+        $pdf->SetTextColor(255, 0, 0); // Red color for debug text
+        $pdf->SetFont('helvetica', 'B', 10);
+
+        // Calculate column number based on x position (assuming 5mm margin and spacing)
+        $margin = 5;
+        $spacing = 2;
+        $columnWidth = 141; // Approximate column width for capsula items
+        $columnNumber = floor(($x - $margin) / ($columnWidth + $spacing)) + 1;
     }
 
     /**
@@ -2353,8 +2364,8 @@ class TcpdfService
         $defaultOptions = [
             'page_format' => 'A4', // A4, A3, A2, or custom
             'orientation' => 'P', // P for portrait, L for landscape
-            'margin' => 1, // Minimal page margin in mm (reduced from 5)
-            'spacing' => 0.5, // Minimal spacing between labels in mm (reduced from 2)
+            'margin' => 1, // Minimal page margin in mm for maximum space utilization
+            'spacing' => 0.3, // Minimal spacing between labels in mm for maximum density
             'max_labels_per_page' => null, // Auto-calculate if null
             'label_rotation' => false, // Whether to rotate labels for better fit
             'group_by_type' => true, // Group similar label types together
@@ -2383,8 +2394,8 @@ class TcpdfService
             $this->preparePdf($pdf);
 
             // Use the same page dimensions as individual rotulos for consistency
-            $pageWidth = 502;  // Same as individual rotulos
-            $pageHeight = 500; // Same as individual rotulos
+            $pageWidth = 460;  // Max width for rotulos (460mm)
+            $pageHeight = 505; // Increased height for better space utilization
 
             // Prepare label data
             $labelData = $this->prepareBatchLabelData($itemsWithOrderData, $options);
@@ -2452,8 +2463,8 @@ class TcpdfService
     private function initializeBatchPdf(array $options): Fpdi
     {
         // Use the same custom dimensions as individual rotulos for consistency
-        // Individual rotulos use [502, 500] dimensions
-        $pdf = new Fpdi('P', 'mm', [502, 500]);
+        // Individual rotulos use [460, 500] dimensions (max width 460mm)
+        $pdf = new Fpdi('P', 'mm', [460, 500]);
         return $pdf;
     }
 
@@ -2822,11 +2833,6 @@ class TcpdfService
         $columnYPositions = array_fill(0, $columnCount, $margin);
 
         foreach ($labelsByOrder as $orderId => $orderLabels) {
-            $this->logger->debug('Processing order in column layout', [
-                'order_id' => $orderId,
-                'labels_count' => count($orderLabels),
-                'starting_column' => $currentColumn
-            ]);
 
             $labelIndex = 0;
             while ($labelIndex < count($orderLabels)) {
@@ -2838,22 +2844,56 @@ class TcpdfService
                 $isNextPouch = $nextLabel && $nextLabel['label_type'] === 'pouch';
 
                 if ($isCurrentPouch && $isNextPouch) {
-                    // Place both pouches side by side
-                    $this->placePouchesSideBySide(
+                    // SIMPLE LOGIC: Try side by side first, then individual placement
+
+                    $shouldPlaceSideBySide = $this->shouldPlacePouchesSideBySide(
                         $currentLabel,
                         $nextLabel,
                         $currentColumn,
                         $columnYPositions,
-                        $columnWidth,
-                        $margin,
-                        $spacing,
                         $availableHeight,
-                        $currentPage,
-                        $layout,
-                        $columnCount
+                        $margin
                     );
 
-                    $labelIndex += 2; // Skip both pouches
+                    if ($shouldPlaceSideBySide) {
+                        // Place both pouches side by side (only in first two columns)
+
+                        // Mark both pouches as side-by-side to prevent rotation
+                        $currentLabel['side_by_side'] = true;
+                        $nextLabel['side_by_side'] = true;
+
+                        $this->placePouchesSideBySide(
+                            $currentLabel,
+                            $nextLabel,
+                            $currentColumn,
+                            $columnYPositions,
+                            $columnWidth,
+                            $margin,
+                            $spacing,
+                            $availableHeight,
+                            $currentPage,
+                            $layout,
+                            $columnCount
+                        );
+
+                        $labelIndex += 2; // Skip both pouches
+                    } else {
+                        // Side by side doesn't work, place first pouch individually
+                        $this->placeSingleLabel(
+                            $currentLabel,
+                            $currentColumn,
+                            $columnYPositions,
+                            $columnWidth,
+                            $margin,
+                            $spacing,
+                            $availableHeight,
+                            $currentPage,
+                            $layout,
+                            $columnCount
+                        );
+
+                        $labelIndex++; // Skip only the first pouch
+                    }
                 } else {
                     // Place single label normally
                     $this->placeSingleLabel(
@@ -2883,12 +2923,6 @@ class TcpdfService
         // Calculate waste percentage
         $layout['waste_percentage'] = $this->calculateWastePercentage($layout, $availableWidth, $availableHeight);
 
-        $this->logger->debug('Simple Column-Based Layout completed', [
-            'total_pages' => $layout['total_pages'],
-            'total_labels' => $layout['total_labels'],
-            'waste_percentage' => $layout['waste_percentage'],
-            'columns_used' => $columnCount
-        ]);
 
         return $layout;
     }
@@ -2915,8 +2949,8 @@ class TcpdfService
         $maxRotatedPouchColumns = floor(($availableWidth + $spacing) / ($rotatedPouchWidth + $spacing));
         $maxCapsulaColumns = floor(($availableWidth + $spacing) / ($capsulaWidth + $spacing));
 
-        // Use the most restrictive constraint (smallest number of columns)
-        $optimalColumns = min(3, max(2, min($maxSideBySidePouchColumns, $maxRotatedPouchColumns)));
+        // Use the most restrictive constraint but allow more columns for better space utilization
+        $optimalColumns = min(5, max(3, min($maxSideBySidePouchColumns, $maxRotatedPouchColumns, $maxCapsulaColumns)));
 
         $this->logger->debug('Column count calculation for pouches and capsulas', [
             'available_width' => $availableWidth,
@@ -2929,6 +2963,43 @@ class TcpdfService
         ]);
 
         return $optimalColumns;
+    }
+
+    /**
+     * Calculate dynamic column widths where the last column uses remaining space
+     */
+    private function calculateDynamicColumnWidths(float $availableWidth, int $columns, float $spacing): array
+    {
+        $columnWidths = [];
+
+        if ($columns <= 1) {
+            return [$availableWidth];
+        }
+
+        // Calculate base width for all columns except the last
+        $baseWidth = 70; // Use smaller base width to allow more columns
+        $spacingTotal = ($columns - 1) * $spacing;
+        $remainingWidth = $availableWidth - $spacingTotal;
+
+        // First columns get the base width
+        for ($i = 0; $i < $columns - 1; $i++) {
+            $columnWidths[$i] = $baseWidth;
+        }
+
+        // Last column gets all remaining space
+        $usedWidth = ($columns - 1) * $baseWidth;
+        $columnWidths[$columns - 1] = $remainingWidth - $usedWidth;
+
+        $this->logger->debug('Dynamic column widths calculated', [
+            'columns' => $columns,
+            'available_width' => $availableWidth,
+            'spacing_total' => $spacingTotal,
+            'base_width' => $baseWidth,
+            'column_widths' => $columnWidths,
+            'total_used' => array_sum($columnWidths) + $spacingTotal
+        ]);
+
+        return $columnWidths;
     }
 
     /**
@@ -2959,25 +3030,48 @@ class TcpdfService
             'available_height' => $availableHeight
         ]);
 
-        // Check if pouches fit in current column
-        if ($columnYPositions[$currentColumn] + $pouchHeight > $availableHeight + $margin) {
-            // Current column is full, try next column
-            $currentColumn++;
+        // Use a local variable to find the right column without modifying the original
+        $targetColumn = $currentColumn;
 
-            if ($currentColumn >= $columnCount) {
+        // Check if pouches fit in current column
+        // For side-by-side pouches, we need to find a column that can fit both pouches
+        while ($columnYPositions[$targetColumn] + $pouchHeight > $availableHeight + $margin) {
+            // Current column is full, try next column
+            $targetColumn++;
+
+            if ($targetColumn >= $columnCount) {
                 // All columns full, start new page
                 $layout['pages'][] = $currentPage;
                 $layout['total_pages']++;
 
                 $currentPage = $this->createNewPage();
-                $currentColumn = 0;
+                $targetColumn = 0;
                 $columnYPositions = array_fill(0, $columnCount, $margin);
+                break; // Exit the while loop since we're on a new page
             }
         }
 
+        // Update the currentColumn to the target column
+        $currentColumn = $targetColumn;
+
+        $this->logger->debug('Side-by-side pouches will be placed in column', [
+            'column' => $targetColumn,
+            'column_y' => $columnYPositions[$targetColumn],
+            'pouch_height' => $pouchHeight
+        ]);
+
         // Calculate positions for side-by-side pouches
-        $baseX = $margin + $currentColumn * ($columnWidth + $spacing);
-        $y = $columnYPositions[$currentColumn];
+        $baseX = $margin + $targetColumn * ($columnWidth + $spacing);
+        $y = $columnYPositions[$targetColumn];
+
+        // Add 5mm offset for double pouches in second column
+        if ($targetColumn == 1) {
+            $baseX += 5;
+            $this->logger->debug('Applied 5mm offset for double pouches in second column', [
+                'current_column' => $targetColumn,
+                'base_x' => $baseX
+            ]);
+        }
 
         // Place first pouch
         $pouch1['x'] = $baseX;
@@ -2990,11 +3084,11 @@ class TcpdfService
         $currentPage['labels'][] = $pouch2;
 
         // Update column Y position
-        $columnYPositions[$currentColumn] += $pouchHeight + $spacing;
+        $columnYPositions[$targetColumn] += $pouchHeight + $spacing;
 
         $this->logger->debug('Pouches placed side by side', [
             'order_id' => $pouch1['order_id'] ?? 'unknown',
-            'column' => $currentColumn,
+            'column' => $targetColumn,
             'positions' => [
                 'pouch1' => ['x' => $pouch1['x'], 'y' => $pouch1['y']],
                 'pouch2' => ['x' => $pouch2['x'], 'y' => $pouch2['y']]
@@ -3006,6 +3100,108 @@ class TcpdfService
      * Place a single label in the current column
      * Rotates single pouches to horizontal orientation for better space usage
      */
+    /**
+     * Check if an item fits in the current column
+     * 
+     * @param float $itemHeight Height of the item to check
+     * @param int $currentColumn Current column index
+     * @param array $columnYPositions Array of Y positions for each column
+     * @param float $availableHeight Available height in the column
+     * @param float $margin Margin from edges
+     * @return bool True if item fits in current column
+     */
+    private function fitsInCurrentColumn(
+        float $itemHeight,
+        int $currentColumn,
+        array $columnYPositions,
+        float $availableHeight,
+        float $margin
+    ): bool {
+        return $columnYPositions[$currentColumn] + $itemHeight <= $availableHeight + $margin;
+    }
+
+    /**
+     * Check if pouches should be placed side by side
+     * 
+     * @param array $currentLabel Current pouch label
+     * @param array $nextLabel Next pouch label
+     * @param int $currentColumn Current column index
+     * @param array $columnYPositions Array of Y positions for each column
+     * @param float $availableHeight Available height in the column
+     * @param float $margin Margin from edges
+     * @return bool True if pouches should be placed side by side
+     */
+    private function shouldPlacePouchesSideBySide(
+        array $currentLabel,
+        array $nextLabel,
+        int $currentColumn,
+        array $columnYPositions,
+        float $availableHeight,
+        float $margin
+    ): bool {
+        // Only place side by side in first two columns
+        if ($currentColumn >= 2) {
+            return false;
+        }
+
+        // If pouches are the first items in a column (at margin position), always place side by side
+        if ($this->isFirstItemInColumn($currentColumn, $columnYPositions, $margin)) {
+            $this->logger->debug('Pouches are first items in column, placing side by side', [
+                'current_column' => $currentColumn,
+                'column_y' => $columnYPositions[$currentColumn],
+                'margin' => $margin
+            ]);
+            return true;
+        }
+
+        // Check if both pouches fit vertically in current column
+        $pouchHeight = max($currentLabel['label_height'], $nextLabel['label_height']);
+        return $this->fitsInCurrentColumn($pouchHeight, $currentColumn, $columnYPositions, $availableHeight, $margin);
+    }
+
+    /**
+     * Check if a pouch is the first item in a column
+     * 
+     * @param int $currentColumn Current column index
+     * @param array $columnYPositions Array of Y positions for each column
+     * @param float $margin Margin from edges
+     * @return bool True if pouch is first item in column
+     */
+    private function isFirstItemInColumn(
+        int $currentColumn,
+        array $columnYPositions,
+        float $margin
+    ): bool {
+        return $columnYPositions[$currentColumn] <= $margin;
+    }
+
+    /**
+     * Check if a single pouch should be rotated to fit
+     * 
+     * @param array $label Pouch label to check
+     * @param int $currentColumn Current column index
+     * @param array $columnYPositions Array of Y positions for each column
+     * @param float $availableHeight Available height in the column
+     * @param float $margin Margin from edges
+     * @return bool True if pouch should be rotated
+     */
+    private function shouldRotatePouchToFit(
+        array $label,
+        int $currentColumn,
+        array $columnYPositions,
+        float $availableHeight,
+        float $margin
+    ): bool {
+        // First check if pouch fits normally
+        if ($this->fitsInCurrentColumn($label['label_height'], $currentColumn, $columnYPositions, $availableHeight, $margin)) {
+            return false;
+        }
+
+        // If it doesn't fit normally, check if it fits when rotated
+        $rotatedHeight = $label['label_width']; // Height becomes width when rotated
+        return $this->fitsInCurrentColumn($rotatedHeight, $currentColumn, $columnYPositions, $availableHeight, $margin);
+    }
+
     private function placeSingleLabel(
         array $label,
         int &$currentColumn,
@@ -3026,13 +3222,42 @@ class TcpdfService
             'label_type' => $label['label_type'],
             'label_height' => $labelHeight,
             'current_column_y' => $columnYPositions[$currentColumn],
+            "current_column" => $currentColumn,
             'available_height' => $availableHeight
         ]);
 
+        // Check if label fits in current column (using potentially rotated dimensions)
+        if (!$this->fitsInCurrentColumn($labelHeight, $currentColumn, $columnYPositions, $availableHeight, $margin)) {
+            // Current column is full, try next column
+            $currentColumn++;
+
+            if ($currentColumn >= $columnCount) {
+                // All columns full, start new page
+                $layout['pages'][] = $currentPage;
+                $layout['total_pages']++;
+
+                $currentPage = $this->createNewPage();
+                $currentColumn = 0;
+                $columnYPositions = array_fill(0, $columnCount, $margin);
+            } else {
+                // Ensure the new column starts at the margin
+                $columnYPositions[$currentColumn] = $margin;
+            }
+        }
+
         // Check if this is a single pouch that should be rotated
         if ($label['label_type'] === 'pouch') {
+            $this->logger->debug('Placing single pouch with dynamic height', [
+                'order_id' => $label['order_id'] ?? 'unknown',
+                'label_type' => $label['label_type'],
+                'label_height' => $labelHeight,
+                'current_column_y' => $columnYPositions[$currentColumn],
+                "current_column" => $currentColumn,
+                'available_height' => $availableHeight
+            ]);
+
             // Check if this pouch should be rotated based on layout rules
-            $shouldRotate = $this->shouldRotatePouch($label, $currentPage, $layout);
+            $shouldRotate = $this->shouldRotatePouch($label, $currentPage, $layout, $currentColumn, $columnYPositions, $margin);
 
             if ($shouldRotate) {
                 // Mark as rotated for rendering, but keep original dimensions for layout
@@ -3060,24 +3285,16 @@ class TcpdfService
             }
         }
 
-        // Check if label fits in current column
-        if ($columnYPositions[$currentColumn] + $labelHeight > $availableHeight + $margin) {
-            // Current column is full, try next column
-            $currentColumn++;
-
-            if ($currentColumn >= $columnCount) {
-                // All columns full, start new page
-                $layout['pages'][] = $currentPage;
-                $layout['total_pages']++;
-
-                $currentPage = $this->createNewPage();
-                $currentColumn = 0;
-                $columnYPositions = array_fill(0, $columnCount, $margin);
-            }
+        // Calculate position in current column
+        $x = $margin + $currentColumn * ($columnWidth + 8);
+        if ($currentColumn == 1) {
+            $x += 5;
+        }
+        // Add 5mm offset for third column and beyond
+        if ($currentColumn >= 2) {
+            $x -= 1;
         }
 
-        // Calculate position in current column
-        $x = $margin + $currentColumn * ($columnWidth + $spacing);
         $y = $columnYPositions[$currentColumn];
 
         // Place the label
@@ -3101,45 +3318,52 @@ class TcpdfService
     /**
      * Determine if a single pouch should be rotated based on layout rules
      */
-    private function shouldRotatePouch(array $label, array $currentPage, array $layout): bool
+    private function shouldRotatePouch(array $label, array $currentPage, array $layout, int $currentColumn, array $columnYPositions = [], float $margin = 0): bool
     {
-        // Rule 1: Don't rotate if this would be the first item on a new page
-        $isFirstOnPage = empty($currentPage['labels']);
+        // SIMPLE RULES - NO ROTATION IF:
 
-        // Rule 2: Don't rotate if this is the only item in the entire layout
-        $totalLabelsInLayout = $layout['total_labels'];
-        $isOnlyItem = $totalLabelsInLayout === 1;
-
-        // Rule 3: Don't rotate if this is the only item on the current page
-        $isOnlyItemOnPage = count($currentPage['labels']) === 0 && $totalLabelsInLayout === 1;
-
-        // Rule 4: Don't rotate if this is the only item in the current order
-        $currentOrderId = $label['order_id'] ?? 'unknown';
-        $orderLabelsCount = $this->countLabelsInOrder($currentOrderId, $layout);
-        $isOnlyItemInOrder = $orderLabelsCount === 1;
-
-        // Don't rotate if any of these conditions are true
-        if ($isFirstOnPage || $isOnlyItem || $isOnlyItemOnPage || $isOnlyItemInOrder) {
-            $this->logger->debug('Pouch rotation prevented by layout rules', [
-                'order_id' => $label['order_id'] ?? 'unknown',
-                'is_first_on_page' => $isFirstOnPage,
-                'is_only_item' => $isOnlyItem,
-                'is_only_item_on_page' => $isOnlyItemOnPage,
-                'is_only_item_in_order' => $isOnlyItemInOrder,
-                'current_page_labels' => count($currentPage['labels']),
-                'total_labels' => $totalLabelsInLayout,
-                'order_labels_count' => $orderLabelsCount
-            ]);
+        // 1. Side by side pouch
+        if (isset($label['side_by_side']) && $label['side_by_side']) {
             return false;
         }
 
-        $this->logger->debug('Pouch rotation allowed', [
-            'order_id' => $label['order_id'] ?? 'unknown',
-            'current_page_labels' => count($currentPage['labels']),
-            'total_labels' => $totalLabelsInLayout,
-            'order_labels_count' => $orderLabelsCount
-        ]);
+        // 2. Explicitly prevented
+        if (isset($label['prevent_rotation']) && $label['prevent_rotation']) {
+            return false;
+        }
 
+        // 3. First two columns (0 and 1)
+        if ($currentColumn <= 1) {
+            return false;
+        }
+
+        // 4. First item in column
+        if (!empty($columnYPositions) && $margin > 0) {
+            if ($columnYPositions[$currentColumn] <= $margin) {
+                return false;
+            }
+        }
+
+        // 5. First item on page
+        if (empty($currentPage['labels'])) {
+            return false;
+        }
+
+        // 6. Only item in order
+        $currentOrderId = $label['order_id'] ?? 'unknown';
+        $orderLabelsCount = $this->countLabelsInOrder($currentOrderId, $layout);
+        if ($orderLabelsCount === 1) {
+            return false;
+        }
+
+        // 7. Specific position (317.3, 5)
+        if (isset($label['x']) && isset($label['y'])) {
+            if (abs($label['x'] - 317.3) < 0.1 && abs($label['y'] - 5) < 0.1) {
+                return false;
+            }
+        }
+
+        // IF NONE OF THE ABOVE - ALLOW ROTATION
         return true;
     }
 
@@ -3359,7 +3583,7 @@ class TcpdfService
             $maxHeightInRow = max($maxHeightInRow, $label['label_height']);
 
             // If we run out of horizontal space, move to next row
-            if ($currentX > $anchor['x'] + 400) { // Assume max width of 400mm
+            if ($currentX > $anchor['x'] + 460) { // Assume max width of 460mm
                 $currentX = $anchor['x'];
                 $currentY += $maxHeightInRow + $spacing;
                 $maxHeightInRow = 0;
@@ -3630,7 +3854,7 @@ class TcpdfService
         }
 
         // Assume page area (this should be passed as parameter in real implementation)
-        $pageArea = 502 * 500; // Default page dimensions
+        $pageArea = 460 * 500; // Default page dimensions (max width 460mm)
 
         return ($totalLabelArea / $pageArea) * 100;
     }
@@ -3726,8 +3950,8 @@ class TcpdfService
         $labelData = $this->prepareBatchLabelData($itemsWithOrderData, $options);
 
         // Use the same page dimensions as individual rotulos
-        $pageWidth = 502;
-        $pageHeight = 500;
+        $pageWidth = 460;  // Max width for rotulos (460mm)
+        $pageHeight = 505;
 
         // Calculate layout
         $layout = $this->calculateOptimalLayout($labelData, $pageWidth, $pageHeight, $options);
@@ -3801,17 +4025,17 @@ class TcpdfService
         $oldDisplayErrors = ini_set('display_errors', 0);
 
         try {
-            // Start with custom dimensions (1417 x 3228px = 120mm x 273mm at 300 DPI) - work vertically throughout
-            $pdf = new Fpdi('P', 'mm', [502, 500]); // Custom page size
+            // Start with custom dimensions (460mm x 500mm) - work vertically throughout
+            $pdf = new Fpdi('P', 'mm', [460, 500]); // Custom page size
             $this->preparePdf($pdf);
             $pdf->AddPage();
 
             // Work with portrait dimensions throughout the design
-            $pageWidth = 502;  // Portrait width (1424pt = 502mm at 300 DPI)
-            $pageHeight = 500; // Portrait height (1417pt = 500mm at 300 DPI)
+            $pageWidth = 460;  // Max width for rotulos (460mm)
+            $pageHeight = 505; // Portrait height (1417pt = 520mm at 300 DPI)
 
-            $margin = 12.95; // Left margin 36.7pt = 12.95mm at 300 DPI
-            $spacing = 1.87; // Spacing between items 5.3pt = 1.87mm at 300 DPI
+            $margin = 2; // Minimal margin for maximum space utilization
+            $spacing = 0.5; // Minimal spacing between items for maximum density
 
             // Calculate dimensions for each item type
             $pouchWidth = 76;   // Vertical pouches (331.7pt = 117mm at 300 DPI)
@@ -3819,9 +4043,20 @@ class TcpdfService
             $stickerWidth = 141; // Horizontal stickers (88pt = 31mm at 300 DPI)
             $stickerHeight = 31; // Horizontal stickers (400pt = 141mm at 300 DPI)
 
-            // Fixed 2-column pattern (column 1 first, column 2 only if needed)
-            $columns = 2;
-            $columnWidth = ($pageWidth - 2 * $margin - $spacing) / $columns;
+            // Calculate optimal number of columns based on available space
+            $availableWidth = $pageWidth - 2 * $margin;
+            $columns = $this->calculateOptimalColumnCount($availableWidth, $spacing);
+
+            // Calculate dynamic column widths - last column uses remaining space
+            $columnWidths = $this->calculateDynamicColumnWidths($availableWidth, $columns, $spacing);
+
+            $this->logger->debug('Multiple rotulos column configuration', [
+                'page_width' => $pageWidth,
+                'available_width' => $availableWidth,
+                'columns' => $columns,
+                'column_widths' => $columnWidths,
+                'spacing' => $spacing
+            ]);
 
             // Calculate how many items fit per column for each type
             $pouchsPerColumn = floor(($pageHeight - 2 * $margin) / ($pouchHeight + $spacing));
@@ -3863,20 +4098,39 @@ class TcpdfService
             // Process all items in order: pouches first (side by side), then capsules, then others
             $currentY = $margin; // Start at top of page
             $currentCol = 0; // Start with column 1
-            $columnWidth = ($pageWidth - 2 * $margin - $spacing) / 2 - 40; // 2 columns only
+            // Use dynamic column widths calculated above
 
             // Process pouches first with side-by-side layout
             if (!empty($pouches)) {
                 $pouchX = $margin;
                 $pouchY = $currentY;
-                $pouchesPerRow = 2; // Place 2 pouches side by side
-                $pouchSpacing = 10; // Spacing between side-by-side pouches
+                // Only place 2 pouches side by side in first two columns
+                $pouchesPerRow = ($currentCol < 2) ? 2 : 1;
+
+                if ($currentCol >= 2) {
+                    $this->logger->debug('Third column detected - stacking pouches vertically instead of side-by-side', [
+                        'current_column' => $currentCol,
+                        'pouches_per_row' => $pouchesPerRow
+                    ]);
+                }
+                $pouchSpacing = 0.5; // Minimal spacing between side-by-side pouches for maximum density
 
                 foreach ($pouches as $index => $pouchData) {
                     $pouchIndex = $index % $pouchesPerRow;
 
                     // Calculate position for side-by-side placement
                     $x = $pouchX + $pouchIndex * ($pouchWidth + $pouchSpacing);
+
+                    // Add 5mm offset for double pouches in second column
+                    if ($currentCol == 1) {
+                        $x += 5;
+                        $this->logger->debug('Applied 5mm offset for double pouches in second column (multiple rotulos)', [
+                            'current_column' => $currentCol,
+                            'pouch_index' => $pouchIndex,
+                            'x_position' => $x
+                        ]);
+                    }
+
                     $y = $pouchY;
 
                     // Check if we need a new row
@@ -3921,21 +4175,48 @@ class TcpdfService
                 // Check if item fits in current column
                 if ($currentY + $height > $pageHeight - $margin) {
                     // Item doesn't fit, move to next column
-                    if ($currentCol == 0) {
-                        // Move to column 2
-                        $currentCol = 1;
-                        $currentY = $margin; // Reset Y position
-                    } else {
-                        // Both columns full, start new page
+                    $currentCol++;
+                    if ($currentCol >= $columns) {
+                        // All columns full, start new page
                         $pdf->AddPage();
                         $currentPage++;
                         $currentCol = 0;
-                        $currentY = $margin;
                     }
+                    $currentY = $margin; // Reset Y position
                 }
 
-                // Position calculation
-                $x = $margin + $currentCol * ($columnWidth + $spacing);
+                // Check if item width fits in current column
+                $currentColumnWidth = $columnWidths[$currentCol];
+                if ($width > $currentColumnWidth) {
+                    // Item too wide for current column, try next column
+                    $currentCol++;
+                    if ($currentCol >= $columns) {
+                        // All columns full, start new page
+                        $pdf->AddPage();
+                        $currentPage++;
+                        $currentCol = 0;
+                    }
+                    $currentY = $margin; // Reset Y position
+                }
+
+                // Position calculation for dynamic columns
+                $x = $margin;
+                for ($i = 0; $i < $currentCol; $i++) {
+                    $x += $columnWidths[$i] + $spacing;
+                }
+                if ($currentCol == 1) {
+                    $x += 5;
+                }
+
+                // Add 5mm offset for third column and beyond
+                if ($currentCol >= 2) {
+                    $x -= 5;
+                    $this->logger->debug('Applied 5mm offset for third column', [
+                        'current_column' => $currentCol,
+                        'x_position' => $x
+                    ]);
+                }
+
                 $y = $currentY;
 
                 // Items are left-aligned within their column

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,36 +26,36 @@
                 height: 100dvh;
             }
         }
-        
+
         /* Smooth scrolling for sidebar navigation */
         .sidebar-nav {
             scrollbar-width: thin;
             scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
         }
-        
+
         .sidebar-nav::-webkit-scrollbar {
             width: 4px;
         }
-        
+
         .sidebar-nav::-webkit-scrollbar-track {
             background: transparent;
         }
-        
+
         .sidebar-nav::-webkit-scrollbar-thumb {
             background-color: rgba(156, 163, 175, 0.5);
             border-radius: 2px;
         }
-        
+
         .sidebar-nav::-webkit-scrollbar-thumb:hover {
             background-color: rgba(156, 163, 175, 0.7);
         }
-        
+
         /* Enhanced hover effects */
         .nav-item {
             position: relative;
             overflow: hidden;
         }
-        
+
         .nav-item::before {
             content: '';
             position: absolute;
@@ -65,11 +66,11 @@
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
             transition: left 0.5s;
         }
-        
+
         .nav-item:hover::before {
             left: 100%;
         }
-        
+
         /* Tooltip styles for collapsed sidebar */
         .nav-item::after {
             content: attr(data-tooltip);
@@ -89,12 +90,12 @@
             z-index: 1000;
             margin-left: 0.5rem;
         }
-        
+
         .sidebar[data-collapsed="true"] .nav-item:hover::after {
             opacity: 1;
             visibility: visible;
         }
-        
+
         /* Header auto-adjustment */
         .sticky-header {
             backdrop-filter: blur(8px);
@@ -102,17 +103,19 @@
             transition: all 0.3s ease-in-out;
             width: 100%;
         }
-        
+
         /* Header adjusts when sidebar collapsed */
         body.sidebar-collapsed .sticky-header {
             width: calc(100vw - 4rem);
             margin-left: 0;
         }
-         /* Header adjusts when sidebar expanded */
-         body:not(.sidebar-collapsed) .sticky-header {
+
+        /* Header adjusts when sidebar expanded */
+        body:not(.sidebar-collapsed) .sticky-header {
             width: calc(100vw - 16rem);
             margin-left: 0;
-         }
+        }
+
         /* Ensure full width on mobile */
         @media (max-width: 1023px) {
             .sticky-header {
@@ -120,61 +123,62 @@
                 margin-left: 0 !important;
             }
         }
-        
+
         /* Header content responsiveness */
         .header-content {
             transition: all 0.3s ease-in-out;
         }
-        
+
         /* Adjust header content when sidebar collapsed */
         body.sidebar-collapsed .header-content {
             padding-left: 1rem;
             padding-right: 1rem;
         }
-        
+
         /* Adjust header content when sidebar expanded */
         body:not(.sidebar-collapsed) .header-content {
             padding-left: 1.5rem;
             padding-right: 1.5rem;
         }
-        
+
         /* Collapsed sidebar styles */
         .sidebar[data-collapsed="true"] .nav-item {
             justify-content: center;
             padding-left: 0.75rem;
             padding-right: 0.75rem;
         }
-        
+
         .sidebar[data-collapsed="true"] .nav-item svg {
             margin: 0;
         }
-        
+
         /* Header layout for expanded state */
         #sidebar-header {
             justify-content: space-between;
         }
-        
+
         /* Center logo when collapsed */
         .sidebar[data-collapsed="true"] #sidebar-header {
             justify-content: center;
             position: relative;
         }
-        
+
         .sidebar[data-collapsed="true"] #sidebar-brand {
             justify-content: center;
             width: 100%;
         }
-        
+
         .sidebar[data-collapsed="true"] #sidebar-logo {
             margin: 0 auto;
         }
-        
+
         .sidebar[data-collapsed="true"] #sidebar-toggle {
             position: absolute;
             right: 1rem;
         }
     </style>
 </head>
+
 <body class="bg-gray-50 min-h-screen">
     <!-- Sidebar -->
     <div id="sidebar" class="bg-white shadow-xl border-r border-gray-200 transition-all duration-300 ease-in-out fixed inset-y-0 left-0 z-50 -translate-x-full lg:translate-x-0 h-screen w-64">
@@ -200,6 +204,15 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
                         <span class="sidebar-text relative z-10 transition-opacity duration-300 font-medium">Pedidos</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/production" class="nav-item flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-700 hover:bg-primary hover:text-white transition-all duration-200 group relative overflow-hidden" data-tooltip="Produção">
+                        <div class="absolute inset-0 bg-gradient-to-r from-primary to-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                        <svg class="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                        </svg>
+                        <span class="sidebar-text relative z-10 transition-opacity duration-300 font-medium">Produção</span>
                     </a>
                 </li>
             </ul>
@@ -265,13 +278,13 @@
         const sidebarHeader = document.getElementById('sidebar-header');
         const sidebarBrand = document.getElementById('sidebar-brand');
         const mainContent = document.getElementById('main-content');
-        
+
         let isCollapsed = false;
 
         function toggleSidebar() {
             isCollapsed = !isCollapsed;
             const sidebarLogo = document.getElementById('sidebar-logo');
-            
+
             if (isCollapsed) {
                 // Sidebar collapse
                 sidebar.classList.add('w-16');
@@ -281,15 +294,15 @@
                 sidebarHeader.classList.remove('justify-between');
                 sidebarHeader.classList.add('justify-center');
                 sidebarToggle.querySelector('svg').style.transform = 'rotate(180deg)';
-                
+
                 // Main content margin adjustment
                 mainContent.classList.remove('lg:pl-64');
                 mainContent.classList.add('lg:pl-16');
-                
+
                 // Add collapsed state
                 sidebar.setAttribute('data-collapsed', 'true');
                 document.body.classList.add('sidebar-collapsed');
-                
+
             } else {
                 // Sidebar expand
                 sidebar.classList.remove('w-16');
@@ -299,11 +312,11 @@
                 sidebarHeader.classList.remove('justify-center');
                 sidebarHeader.classList.add('justify-between');
                 sidebarToggle.querySelector('svg').style.transform = 'rotate(0deg)';
-                
+
                 // Main content margin adjustment
                 mainContent.classList.remove('lg:pl-16');
                 mainContent.classList.add('lg:pl-64');
-                
+
                 // Remove collapsed state
                 sidebar.removeAttribute('data-collapsed');
                 document.body.classList.remove('sidebar-collapsed');
@@ -341,4 +354,5 @@
         </div>
     </footer>
 </body>
+
 </html>
