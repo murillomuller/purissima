@@ -6,6 +6,73 @@ ob_start();
 ?>
 
 <div class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <!-- Filters Section - Above Header -->
+    <div class="bg-gradient-to-r from-primary to-secondary shadow-lg">
+        <div class="px-2 sm:px-4 lg:px-8 py-6">
+            <!-- Section Title -->
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-white/20 rounded-lg">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1.994 1.994 0 013 7V4z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-white">Filtros e Busca</h3>
+                </div>
+                <button onclick="clearFilters()" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    <span>Limpar Filtros</span>
+                </button>
+            </div>
+
+            <div class="flex flex-col space-y-4">
+                <!-- Search Bar -->
+                <div class="flex-1">
+                    <div class="relative">
+                        <input id="searchInput" type="text" placeholder="Buscar pedidos..." class="w-full px-4 py-3 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80 transition-opacity duration-200" />
+                        <div id="searchIcon" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z" />
+                            </svg>
+                        </div>
+                        <div id="searchSpinner" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hidden">
+                            <svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters Row -->
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <!-- REQ Status Filter -->
+                    <div class="flex flex-col sm:w-48">
+                        <label class="text-white text-sm font-semibold mb-2">Status REQ</label>
+                        <select id="reqStatusFilter" onchange="applyFilters()" class="bg-white/90 text-gray-800 text-sm rounded-lg px-3 py-2 border border-white/50 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm">
+                            <option value="all">Todos os pedidos</option>
+                            <option value="complete">REQ completo</option>
+                            <option value="incomplete">REQ incompleto</option>
+                        </select>
+                    </div>
+
+                    <!-- Date From Filter -->
+                    <div class="flex flex-col sm:w-48">
+                        <label class="text-white text-sm font-semibold mb-2">Data inicial</label>
+                        <input id="dateFromFilter" type="date" onchange="applyFilters()" class="bg-white/90 text-gray-800 text-sm rounded-lg px-3 py-2 border border-white/50 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm" />
+                    </div>
+
+                    <!-- Date To Filter -->
+                    <div class="flex flex-col sm:w-48">
+                        <label class="text-white text-sm font-semibold mb-2">Data final</label>
+                        <input id="dateToFilter" type="date" onchange="applyFilters()" class="bg-white/90 text-gray-800 text-sm rounded-lg px-3 py-2 border border-white/50 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Page Content -->
     <div class="px-2 sm:px-4 lg:px-8 py-4 sm:py-6 max-w-full">
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-end mb-4 sm:mb-6 gap-3 sm:gap-3">
@@ -104,25 +171,14 @@ ob_start();
                         </svg>
                         <h2 class="text-lg sm:text-xl font-bold text-white">Lista de Pedidos</h2>
                     </div>
+
+                    <!-- Action Buttons Row -->
                     <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full lg:w-auto">
-                        <div class="relative flex-1 sm:flex-none">
-                            <input id="searchInput" type="text" placeholder="Buscar pedidos..." class="w-full px-3 py-2 rounded-lg text-sm placeholder-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/60 focus:bg-white/90 bg-white/80 transition-opacity duration-200" />
-                            <div id="searchIcon" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M10 18a8 8 0 100-16 8 8 0 000 16z" />
-                                </svg>
-                            </div>
-                            <div id="searchSpinner" class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hidden">
-                                <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                            </div>
-                        </div>
                         <div class="flex items-center justify-between sm:justify-end space-x-3">
                             <div class="text-white/80 text-sm" id="selectedCount">0 selecionado(s)</div>
                             <div class="flex items-center space-x-2">
                                 <label class="text-white/80 text-xs sm:text-sm">Por página:</label>
-                                <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="bg-white/20 text-white text-xs sm:text-sm rounded px-2 py-1 border border-white/30 focus:outline-none focus:ring-1 focus:ring-white/50">
+                                <select id="pageSizeSelect" onchange="changePageSize(this.value)" class="bg-white/90 text-gray-800 text-xs sm:text-sm rounded px-2 py-1 border border-white/50 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm">
                                     <option value="10">10</option>
                                     <option value="20" selected>20</option>
                                     <option value="50">50</option>
@@ -668,7 +724,7 @@ ob_start();
             return;
         }
 
-        const filtered = filterOrders(orders, searchQuery);
+        const filtered = applyAllFilters(orders);
         ordersCount.textContent = `${filtered.length} pedido(s) encontrado(s)`;
 
         // Show/hide table based on results
@@ -864,6 +920,138 @@ ob_start();
         attachSelectionHandlers();
     }
 
+    function renderOrders(paginatedOrders) {
+        // Get cached DOM elements
+        const tbody = cachedElements.ordersTableBody;
+
+        // Use DocumentFragment for better performance
+        const fragment = document.createDocumentFragment();
+
+        paginatedOrders.forEach(o => {
+            const order = o.order;
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer';
+            tr.onclick = (e) => {
+                // Don't trigger if clicking on checkboxes, buttons, or dropdowns
+                if (e.target.type === 'checkbox' ||
+                    e.target.closest('button') ||
+                    e.target.closest('.relative') ||
+                    e.target.closest('input') ||
+                    e.target.closest('svg')) {
+                    return;
+                }
+                viewOrderDetails(order.ord_id);
+            };
+            const isSelected = globalSelectedIds.has(order.ord_id.toString());
+            tr.innerHTML = `
+            <td class="px-2 sm:px-4 py-3 sm:py-4">
+                <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">#${order.ord_id}</td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-600">
+                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_email)}">${escapeHtml(order.usr_email)}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <span class="px-2 sm:px-3 py-1 text-xs font-semibold rounded-full ${order.chg_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                    ${order.chg_status === 'paid' ? 'Pago' : 'Pendente'}
+                </span>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <div class="flex items-center space-x-1 sm:space-x-2">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                    <span class="text-xs sm:text-sm">${o.items.length}</span>
+                </div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">
+                <div class="hidden sm:block">${new Date(order.created_at).toLocaleString('pt-BR')}</div>
+                <div class="sm:hidden">${new Date(order.created_at).toLocaleDateString('pt-BR')}</div>
+            </td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 sm:space-x-2">
+                    <div class="relative inline-block text-left">
+                        <button onclick="togglePrescriptionDropdown('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span class="hidden sm:inline">Receituário</span>
+                            <span class="sm:hidden">REC</span>
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="prescriptionDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generatePrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar PDF
+                                </button>
+                                <button onclick="previewPrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    ${checkAllItemsHaveReq(o.items) ? 
+                        `<div class="relative inline-block text-left">
+                            <button onclick="toggleStickerDropdown('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                                </svg>
+                                <span class="hidden sm:inline">Rótulo</span>
+                                <span class="sm:hidden">ROT</span>
+                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div id="stickerDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                                <div class="py-1">
+                                    <button onclick="generateSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        Baixar Rótulo
+                                    </button>
+                                    <button onclick="previewSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                        Visualizar Rótulo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>` : ''
+                    }
+                    <div class="flex items-center justify-center ml-2">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </td>`;
+            fragment.appendChild(tr);
+        });
+
+        // Clear and append all at once for better performance
+        tbody.innerHTML = '';
+        tbody.appendChild(fragment);
+
+        attachSelectionHandlers();
+    }
+
     function sortTable(column) {
         if (currentSort.column === column)
             currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
@@ -975,6 +1163,98 @@ ob_start();
         return results;
     }
 
+    function applyAllFilters(orders) {
+        let filtered = [...orders];
+
+        // Apply text search filter
+        const searchQuery = document.getElementById('searchInput').value;
+        if (searchQuery && searchQuery.trim() !== '') {
+            filtered = filterOrders(filtered, searchQuery);
+        }
+
+        // Apply REQ status filter
+        const reqStatus = document.getElementById('reqStatusFilter').value;
+        if (reqStatus !== 'all') {
+            filtered = filtered.filter(order => {
+                const items = order.items || [];
+                const allItemsHaveReq = items.every(item =>
+                    item.req && item.req.trim() !== ''
+                );
+
+                if (reqStatus === 'complete') {
+                    return allItemsHaveReq;
+                } else if (reqStatus === 'incomplete') {
+                    return !allItemsHaveReq;
+                }
+                return true;
+            });
+        }
+
+        // Apply date range filter
+        const dateFrom = document.getElementById('dateFromFilter').value;
+        const dateTo = document.getElementById('dateToFilter').value;
+
+        if (dateFrom || dateTo) {
+            filtered = filtered.filter(order => {
+                const orderDate = new Date(order.order.created_at);
+                const fromDate = dateFrom ? new Date(dateFrom) : null;
+                const toDate = dateTo ? new Date(dateTo) : null;
+
+                if (fromDate && toDate) {
+                    return orderDate >= fromDate && orderDate <= toDate;
+                } else if (fromDate) {
+                    return orderDate >= fromDate;
+                } else if (toDate) {
+                    return orderDate <= toDate;
+                }
+                return true;
+            });
+        }
+
+        return filtered;
+    }
+
+    function applyFilters() {
+        if (!ordersData || ordersData.length === 0) return;
+
+        // Get cached DOM elements
+        const ordersTable = cachedElements.ordersTable;
+        const ordersCount = cachedElements.ordersCount;
+        const tbody = cachedElements.ordersTableBody;
+
+        const filtered = applyAllFilters(ordersData);
+        ordersCount.textContent = `${filtered.length} pedido(s) encontrado(s)`;
+
+        // Show/hide table based on results
+        if (filtered.length === 0) {
+            tbody.innerHTML = '';
+            currentPage = 1;
+            totalPages = 1;
+            updatePaginationInfo();
+            updatePaginationControls();
+            return;
+        } else {
+            ordersTable.classList.remove('hidden');
+        }
+
+        let sortedOrders = filtered;
+        if (currentSort.column !== 'ord_id' || currentSort.direction !== 'desc') {
+            sortedOrders = sortOrders(filtered, currentSort.column, currentSort.direction);
+        }
+
+        // Apply pagination
+        const paginatedOrders = paginateData(sortedOrders);
+        renderOrders(paginatedOrders);
+    }
+
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('reqStatusFilter').value = 'all';
+        document.getElementById('dateFromFilter').value = '';
+        document.getElementById('dateToFilter').value = '';
+        applyFilters();
+    }
+
     function debounce(fn, delay) {
         let t;
         return function() {
@@ -1004,7 +1284,7 @@ ob_start();
         // Use immediate execution for very short queries
         if (query.length <= 3) {
             try {
-                displayOrders(ordersData);
+                applyFilters();
             } finally {
                 isSearching = false;
             }
@@ -1031,7 +1311,7 @@ ob_start();
             }
 
             try {
-                displayOrders(ordersData);
+                applyFilters();
             } finally {
                 isSearching = false;
 
