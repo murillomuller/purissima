@@ -45,6 +45,7 @@ class TcpdfService
     private int $ingredientSpacing; // Spacing after ingredient sections
     private int $dottedLineDashLength; // Length of dotted line dashes
     private int $dottedLineGapLength; // Length of dotted line gaps
+    private float $ingredientsFontSize; // Global font size for ingredients
 
     public function __construct(LoggerService $logger)
     {
@@ -81,8 +82,25 @@ class TcpdfService
         $this->ingredientSpacing = 2; // Spacing after ingredient sections
         $this->dottedLineDashLength = 2; // Length of dotted line dashes
         $this->dottedLineGapLength = 2; // Length of dotted line gaps
+        $this->ingredientsFontSize = 4.0; // Global font size for ingredients
 
         $this->ensureDirectoriesExist();
+    }
+
+    /**
+     * Get the global font size for ingredients
+     */
+    public function getIngredientsFontSize(): float
+    {
+        return $this->ingredientsFontSize;
+    }
+
+    /**
+     * Set the global font size for ingredients
+     */
+    public function setIngredientsFontSize(float $fontSize): void
+    {
+        $this->ingredientsFontSize = $fontSize;
     }
 
     private function ensureDirectoriesExist(): void
@@ -1178,7 +1196,7 @@ class TcpdfService
             $maxIngredientsHeight,
             $colorScheme['text'],
             'opensans',
-            4
+            $this->ingredientsFontSize
         );
 
 
@@ -1458,7 +1476,7 @@ class TcpdfService
             $maxIngredientsHeight,
             $textColor,
             'opensans',
-            4
+            $this->ingredientsFontSize
         );
 
         // Add Purissima social SVG at bottom of left column
@@ -1484,7 +1502,7 @@ class TcpdfService
         }
         $pdf->SetXY($middleColumnX, $currentY);
         $pdf->Cell($middleColumnWidth - 2, 4, $this->cleanText(mb_strtoupper($productName, 'UTF-8')), 0, 1, 'C');
-        $currentY += 3;
+        $currentY += 2.5;
 
         // Product type
         $productType = applyItemNameMappings($rotuloData['product_type']);
@@ -1494,17 +1512,13 @@ class TcpdfService
             $pdf->SetFont('helvetica', 'B', 29);
         }
 
-        // Wrap text to fit within the available width
+        // Display product type as single line
         $maxWidth = $middleColumnWidth - 2;
-        $wrappedLines = $this->wrapTextToLines($this->cleanText(mb_strtoupper($productType, 'UTF-8')), $maxWidth, $pdf);
-
-        // Display each line
-        foreach ($wrappedLines as $line) {
-            $pdf->SetXY($middleColumnX, $currentY);
-            $pdf->Cell($maxWidth, 3, $line, 0, 1, 'C');
-            $currentY += 3; // Move down for next line
-        }
-        $currentY +=  10; // 3 units spacing from top of product type text
+        $pdf->SetXY($middleColumnX, $currentY);
+        // Use TCPDF's getStringHeight method to get accurate height for font size 29
+        $cellHeight = $pdf->getStringHeight($maxWidth, $this->cleanText(mb_strtoupper($productType, 'UTF-8')));
+        $pdf->Cell($maxWidth, $cellHeight, $this->cleanText(mb_strtoupper($productType, 'UTF-8')), 0, 1, 'C');
+        $currentY += $cellHeight; // Cell height + 2.5mm spacing
 
         // Doctor name
         try {
@@ -1541,6 +1555,7 @@ class TcpdfService
         $pdf->SetDrawColor(0, 0, 0, 0);
         $lineWidth = $width * 0.2; // 30% of width
         $lineStartX = $x + ($width - $lineWidth) / 2; // Center the line
+        $pdf->SetLineWidth(0.2);
         $pdf->Line($lineStartX, $currentY, $lineStartX + $lineWidth, $currentY);
         $currentY += 0.3;
 
@@ -1925,11 +1940,16 @@ class TcpdfService
      * @param float $fontSize Font size
      * @return float The Y position after the ingredients section
      */
-    private function displayIngredientsWithFallback($pdf, array $composition, float $x, float $y, float $width, float $maxHeight, $textColor, string $font = 'opensans', float $fontSize = 4): float
+    private function displayIngredientsWithFallback($pdf, array $composition, float $x, float $y, float $width, float $maxHeight, $textColor, string $font = 'opensans', float $fontSize = null): float
     {
         $currentY = $y;
         $lineHeight = 1.5;
         $padding = 2;
+
+        // Use global font size if none provided
+        if ($fontSize === null) {
+            $fontSize = $this->ingredientsFontSize;
+        }
 
         // Set font
         try {
