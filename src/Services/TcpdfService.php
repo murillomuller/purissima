@@ -2862,8 +2862,17 @@ class TcpdfService
 
         $currentColumn = 0;
         $columnYPositions = array_fill(0, $columnCount, $margin);
+        $isFirstOrder = true;
 
         foreach ($labelsByOrder as $orderId => $orderLabels) {
+            // Add extra spacing between different orders (except for the first order)
+            if (!$isFirstOrder) {
+                $orderSpacing = 3.0; // Extra spacing between orders (3mm)
+                foreach ($columnYPositions as $colIndex => $yPos) {
+                    $columnYPositions[$colIndex] = $yPos + $orderSpacing;
+                }
+            }
+            $isFirstOrder = false;
 
             $labelIndex = 0;
             while ($labelIndex < count($orderLabels)) {
@@ -4077,8 +4086,8 @@ class TcpdfService
             $pageWidth = 460;  // Max width for rotulos (460mm)
             $pageHeight = 505; // Portrait height (1417pt = 520mm at 300 DPI)
 
-            $margin = 2; // Minimal margin for maximum space utilization
-            $spacing = 0.5; // Minimal spacing between items for maximum density
+            $margin = 1; // Reduced margin for more space between columns
+            $spacing = 1.0; // Spacing between items for better readability
 
             // Calculate dimensions for each item type
             $pouchWidth = 76;   // Vertical pouches (331.7pt = 117mm at 300 DPI)

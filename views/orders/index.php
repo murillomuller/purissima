@@ -2087,12 +2087,22 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage(`Receituário gerado e baixado com sucesso!`);
+
+                            // Clear all selections (with delay to ensure DOM is updated)
+                            setTimeout(() => {
+                                clearAllSelections();
+                            }, 100);
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage(`Receituário gerado com sucesso!`);
+
+                                // Clear all selections (with delay to ensure DOM is updated)
+                                setTimeout(() => {
+                                    clearAllSelections();
+                                }, 100);
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar receituário');
                             }
@@ -2214,12 +2224,22 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage('Receituários gerados com sucesso!');
+
+                            // Clear all selections (with delay to ensure DOM is updated)
+                            setTimeout(() => {
+                                clearAllSelections();
+                            }, 100);
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage('Receituários gerados com sucesso!');
+
+                                // Clear all selections (with delay to ensure DOM is updated)
+                                setTimeout(() => {
+                                    clearAllSelections();
+                                }, 100);
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar receituários em lote');
                             }
@@ -2266,12 +2286,22 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage('Rótulos gerados com sucesso!');
+
+                            // Clear all selections (with delay to ensure DOM is updated)
+                            setTimeout(() => {
+                                clearAllSelections();
+                            }, 100);
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage('Rótulos gerados com sucesso!');
+
+                                // Clear all selections (with delay to ensure DOM is updated)
+                                setTimeout(() => {
+                                    clearAllSelections();
+                                }, 100);
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar rótulos em lote');
                             }
@@ -2458,14 +2488,25 @@ ob_start();
 
                             // Refresh the orders data to update the status
                             refreshOrders();
+
+                            // Clear all selections after refresh (with delay to ensure DOM is updated)
+                            setTimeout(() => {
+                                clearAllSelections();
+                            }, 100);
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage('Rótulos gerados com sucesso!');
+
                                 // Refresh the orders data to update the status
                                 refreshOrders();
+
+                                // Clear all selections after refresh (with delay to ensure DOM is updated)
+                                setTimeout(() => {
+                                    clearAllSelections();
+                                }, 100);
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar rótulos');
                             }
@@ -2532,12 +2573,22 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage('Etiqueta de envio gerada e baixada com sucesso!');
+
+                            // Clear all selections (with delay to ensure DOM is updated)
+                            setTimeout(() => {
+                                clearAllSelections();
+                            }, 100);
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage('Etiqueta de envio gerada com sucesso!');
+
+                                // Clear all selections (with delay to ensure DOM is updated)
+                                setTimeout(() => {
+                                    clearAllSelections();
+                                }, 100);
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar etiqueta de envio');
                             }
@@ -2804,12 +2855,22 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage('Receituários de ontem gerados com sucesso!');
+
+                            // Clear all selections (with delay to ensure DOM is updated)
+                            setTimeout(() => {
+                                clearAllSelections();
+                            }, 100);
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage(`Receituários de ontem gerados com sucesso! (${data.orders_count} pedidos)`);
+
+                                // Clear all selections (with delay to ensure DOM is updated)
+                                setTimeout(() => {
+                                    clearAllSelections();
+                                }, 100);
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar receituários de ontem');
                             }
