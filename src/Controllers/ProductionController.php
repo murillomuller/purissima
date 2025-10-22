@@ -113,4 +113,46 @@ class ProductionController extends BaseController
             ], 500);
         }
     }
+
+    public function getRemovedOrders(Request $request)
+    {
+        try {
+            $removedOrders = $this->productionService->getRemovedOrdersData();
+            return $this->json([
+                'success' => true,
+                'orders' => $removedOrders
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get removed orders', [
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Erro ao carregar pedidos removidos: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function debugOrders(Request $request)
+    {
+        try {
+            $orders = $this->purissimaApi->getOrders();
+            $orderIds = array_keys($orders);
+            $sampleIds = array_slice($orderIds, 0, 10);
+            
+            return $this->json([
+                'success' => true,
+                'total_orders' => count($orders),
+                'sample_ids' => $sampleIds,
+                'has_716' => in_array('716', $orderIds) || in_array(716, $orderIds),
+                'all_ids' => $orderIds
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

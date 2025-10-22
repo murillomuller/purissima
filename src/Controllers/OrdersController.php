@@ -32,6 +32,16 @@ class OrdersController extends BaseController
         try {
             $orders = $this->purissimaApi->getOrders();
 
+            // Get rotulo generation data
+            $storageService = new \App\Services\StorageService();
+            $rotuloGenerations = $storageService->getRotuloGenerations();
+
+            // Create a lookup array for faster access
+            $rotuloLookup = [];
+            foreach ($rotuloGenerations as $generation) {
+                $rotuloLookup[$generation['order_id']] = $generation;
+            }
+
             $processedOrders = [];
             foreach ($orders as $orderId => $orderData) {
                 if (isset($orderData['order']) && isset($orderData['items'])) {
@@ -41,6 +51,17 @@ class OrdersController extends BaseController
                         'order' => $orderData,
                         'items' => []
                     ];
+                }
+
+                // Add rotulo generation info to each order
+                if (isset($rotuloLookup[$orderId])) {
+                    $processedOrders[$orderId]['rotulo_generated'] = true;
+                    $processedOrders[$orderId]['rotulo_generated_at'] = $rotuloLookup[$orderId]['generated_at'];
+                    $processedOrders[$orderId]['rotulo_generated_by'] = $rotuloLookup[$orderId]['generated_by'];
+                } else {
+                    $processedOrders[$orderId]['rotulo_generated'] = false;
+                    $processedOrders[$orderId]['rotulo_generated_at'] = null;
+                    $processedOrders[$orderId]['rotulo_generated_by'] = null;
                 }
             }
 
@@ -240,6 +261,17 @@ class OrdersController extends BaseController
 
             // Use batch function to generate labels for single order
             $filename = $this->pdfService->createBatchLabelsPdf($allItemsWithOrderData, $options);
+
+            // Record rótulo generation in storage
+            $storageService = new \App\Services\StorageService();
+            $generatedBy = $_SESSION['user_id'] ?? 'system';
+            $storageService->storeRotuloGeneration($orderId, $generatedBy);
+
+            $this->logger->info('Rótulo generation recorded', [
+                'order_id' => $orderId,
+                'generated_by' => $generatedBy,
+                'filename' => $filename
+            ]);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([
@@ -507,6 +539,26 @@ class OrdersController extends BaseController
             // This will output the PDF directly to browser and log the download
             $filename = $this->pdfService->createBatchLabelsPdf($allItemsWithOrderData, $options);
 
+            // Record rótulo generation for all orders in the batch
+            $storageService = new \App\Services\StorageService();
+            $generatedBy = $_SESSION['user_id'] ?? 'system';
+
+            // Get unique order IDs from the batch
+            $processedOrderIds = [];
+            foreach ($allItemsWithOrderData as $itemData) {
+                $orderId = $itemData['order_data']['ord_id'] ?? null;
+                if ($orderId && !in_array($orderId, $processedOrderIds)) {
+                    $storageService->storeRotuloGeneration($orderId, $generatedBy);
+                    $processedOrderIds[] = $orderId;
+                }
+            }
+
+            $this->logger->info('Batch rótulo generation recorded', [
+                'order_ids' => $processedOrderIds,
+                'generated_by' => $generatedBy,
+                'filename' => $filename
+            ]);
+
             // This line should never be reached as the PDF is output directly
             return $this->json([
                 'success' => true,
@@ -617,6 +669,26 @@ class OrdersController extends BaseController
 
             // This will output the PDF for preview in browser
             $filename = $this->pdfService->previewBatchLabelsPdf($allItemsWithOrderData, $options);
+
+            // Record rótulo preview generation for all orders in the batch
+            $storageService = new \App\Services\StorageService();
+            $generatedBy = $_SESSION['user_id'] ?? 'system';
+
+            // Get unique order IDs from the batch
+            $processedOrderIds = [];
+            foreach ($allItemsWithOrderData as $itemData) {
+                $orderId = $itemData['order_data']['ord_id'] ?? null;
+                if ($orderId && !in_array($orderId, $processedOrderIds)) {
+                    $storageService->storeRotuloGeneration($orderId, $generatedBy);
+                    $processedOrderIds[] = $orderId;
+                }
+            }
+
+            $this->logger->info('Batch rótulo preview generation recorded', [
+                'order_ids' => $processedOrderIds,
+                'generated_by' => $generatedBy,
+                'filename' => $filename
+            ]);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([
@@ -854,6 +926,17 @@ class OrdersController extends BaseController
 
             // Use batch function to generate labels for single order preview
             $filename = $this->pdfService->previewBatchLabelsPdf($allItemsWithOrderData, $options);
+
+            // Record rótulo preview generation in storage
+            $storageService = new \App\Services\StorageService();
+            $generatedBy = $_SESSION['user_id'] ?? 'system';
+            $storageService->storeRotuloGeneration($orderId, $generatedBy);
+
+            $this->logger->info('Rótulo preview generation recorded', [
+                'order_id' => $orderId,
+                'generated_by' => $generatedBy,
+                'filename' => $filename
+            ]);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([
@@ -1166,6 +1249,27 @@ class OrdersController extends BaseController
 
             // This will output the PDF directly to browser and log the download
             $filename = $this->pdfService->createBatchLabelsPdf($allItemsWithOrderData, $options);
+
+            // Record rótulo generation for all orders in the batch
+            $storageService = new \App\Services\StorageService();
+            $generatedBy = $_SESSION['user_id'] ?? 'system';
+
+            // Get unique order IDs from the batch
+            $processedOrderIds = [];
+            foreach ($allItemsWithOrderData as $itemData) {
+                $orderId = $itemData['order_data']['ord_id'] ?? null;
+                if ($orderId && !in_array($orderId, $processedOrderIds)) {
+                    $storageService->storeRotuloGeneration($orderId, $generatedBy);
+                    $processedOrderIds[] = $orderId;
+                }
+            }
+
+            $this->logger->info('Last day batch rótulo generation recorded', [
+                'order_ids' => $processedOrderIds,
+                'generated_by' => $generatedBy,
+                'filename' => $filename,
+                'date' => $yesterday
+            ]);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([

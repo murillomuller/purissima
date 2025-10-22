@@ -71,6 +71,8 @@ $router->get('/api/production', [ProductionController::class, 'getProductionData
 $router->post('/api/production/update', [ProductionController::class, 'updateProduction']);
 $router->post('/api/production/remove-orders', [ProductionController::class, 'removeOrders']);
 $router->post('/api/production/restore-orders', [ProductionController::class, 'restoreOrders']);
+$router->get('/api/production/removed-orders', [ProductionController::class, 'getRemovedOrders']);
+$router->get('/api/production/debug-orders', [ProductionController::class, 'debugOrders']);
 
 // Handle the request
 $app->run($router);

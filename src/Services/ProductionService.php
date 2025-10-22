@@ -4,16 +4,19 @@ namespace App\Services;
 
 use App\Services\LoggerService;
 use App\Services\PurissimaApiService;
+use App\Services\StorageService;
 
 class ProductionService
 {
     private LoggerService $logger;
     private PurissimaApiService $purissimaApi;
+    private StorageService $storageService;
 
     public function __construct(LoggerService $logger, PurissimaApiService $purissimaApi)
     {
         $this->logger = $logger;
         $this->purissimaApi = $purissimaApi;
+        $this->storageService = new StorageService();
     }
 
     public function getProductionData(array $filters = []): array
@@ -31,9 +34,15 @@ class ProductionService
             $activeOrders = [];
             foreach ($orders as $orderId => $orderData) {
                 if (isset($orderData['order']) && isset($orderData['items'])) {
+                    // Check if rótulo has been generated for this order
+                    $hasGeneratedRotulo = $this->storageService->hasOrderGeneratedRotulo($orderId);
+                    $rotuloGeneratedAt = $hasGeneratedRotulo ? $this->storageService->getOrderRotuloGenerationTime($orderId) : null;
+
                     $activeOrders[] = [
                         'data' => $orderData['order'],
-                        'items' => $orderData['items']
+                        'items' => $orderData['items'],
+                        'rotulo_generated' => $hasGeneratedRotulo,
+                        'rotulo_generated_at' => $rotuloGeneratedAt
                     ];
                 }
             }
@@ -121,18 +130,43 @@ class ProductionService
                 throw new \Exception('No orders selected');
             }
 
-            // Initialize session if not exists
-            if (!isset($_SESSION['removed_orders'])) {
-                $_SESSION['removed_orders'] = [];
-            }
+            $this->logger->info('Attempting to remove orders', [
+                'order_ids' => $orderIds,
+                'order_ids_type' => gettype($orderIds[0] ?? null)
+            ]);
 
             $removed = [];
             foreach ($orderIds as $orderId) {
-                $_SESSION['removed_orders'][] = [
-                    'id' => $orderId,
-                    'removed_at' => date('c')
-                ];
-                $removed[] = $orderId;
+                $this->logger->info('Processing order for removal', [
+                    'order_id' => $orderId,
+                    'order_id_type' => gettype($orderId)
+                ]);
+
+                // Get order data from API before removing
+                $orderData = $this->getOrderDataById($orderId);
+
+                if ($orderData) {
+                    $this->logger->info('Order data retrieved, storing in file storage', [
+                        'order_id' => $orderId
+                    ]);
+
+                    // Store in file-based storage
+                    $success = $this->storageService->storeRemovedOrder($orderData);
+                    if ($success) {
+                        $removed[] = $orderId;
+                        $this->logger->info('Order successfully stored in file storage', [
+                            'order_id' => $orderId
+                        ]);
+                    } else {
+                        $this->logger->error('Failed to store order in file storage', [
+                            'order_id' => $orderId
+                        ]);
+                    }
+                } else {
+                    $this->logger->warning('Order data not found, skipping removal', [
+                        'order_id' => $orderId
+                    ]);
+                }
             }
 
             $this->logger->info('Orders removed', [
@@ -158,23 +192,20 @@ class ProductionService
                 throw new \Exception('No orders selected');
             }
 
-            if (!isset($_SESSION['removed_orders'])) {
-                $_SESSION['removed_orders'] = [];
+            $restored = [];
+            foreach ($orderIds as $orderId) {
+                $success = $this->storageService->restoreRemovedOrder($orderId);
+                if ($success) {
+                    $restored[] = $orderId;
+                }
             }
 
-            $originalCount = count($_SESSION['removed_orders']);
-            $_SESSION['removed_orders'] = array_filter($_SESSION['removed_orders'], function ($order) use ($orderIds) {
-                return !in_array($order['id'], $orderIds);
-            });
-
-            $restoredCount = $originalCount - count($_SESSION['removed_orders']);
-
             $this->logger->info('Orders restored', [
-                'restored_count' => $restoredCount,
-                'order_ids' => $orderIds
+                'restored_count' => count($restored),
+                'order_ids' => $restored
             ]);
 
-            return $orderIds;
+            return $restored;
         } catch (\Exception $e) {
             $this->logger->error('Failed to restore orders', [
                 'error' => $e->getMessage(),
@@ -270,15 +301,95 @@ class ProductionService
 
     private function getRemovedOrderIds(): array
     {
-        if (!isset($_SESSION['removed_orders'])) {
-            return [];
-        }
-
-        return array_column($_SESSION['removed_orders'], 'id');
+        $removedOrders = $this->storageService->getRemovedOrders();
+        return array_column($removedOrders, 'order_id');
     }
 
     private function getRemovedOrders(): array
     {
-        return $_SESSION['removed_orders'] ?? [];
+        return $this->storageService->getRemovedOrders();
+    }
+
+    public function getRemovedOrdersData(): array
+    {
+        try {
+            $removedOrders = $this->storageService->getRemovedOrders();
+            $formattedOrders = [];
+
+            foreach ($removedOrders as $removedOrder) {
+                // Create a simplified order structure for display
+                $formattedOrders[] = [
+                    'data' => [
+                        'ord_id' => $removedOrder['order_id'],
+                        'usr_name' => $removedOrder['customer_name'],
+                        'usr_email' => $removedOrder['customer_email'],
+                        'usr_phone' => $removedOrder['customer_phone'],
+                        'created_at' => $removedOrder['created_at'],
+                        'chg_status' => $removedOrder['status'],
+                        'itm_price' => $removedOrder['total_value']
+                    ],
+                    'items' => [], // Items are not stored in optimized format
+                    'removed_at' => $removedOrder['removed_at'],
+                    'removed_by' => $removedOrder['removed_by'],
+                    'items_count' => $removedOrder['items_count']
+                ];
+            }
+
+            return $formattedOrders;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get removed orders data', [
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    private function getOrderDataById(string $orderId): ?array
+    {
+        try {
+            // Get all orders from API
+            $orders = $this->purissimaApi->getOrders();
+
+            $this->logger->info('Searching for order', [
+                'order_id' => $orderId,
+                'total_orders' => count($orders),
+                'available_ids' => array_keys($orders)
+            ]);
+
+            // Find the specific order - try both string and numeric comparison
+            foreach ($orders as $id => $orderData) {
+                $idMatch = ($id === $orderId) || ($id == $orderId) || ($id === (string)$orderId) || ($id === (int)$orderId);
+
+                if ($idMatch && isset($orderData['order']) && isset($orderData['items'])) {
+                    $this->logger->info('Order found', [
+                        'order_id' => $orderId,
+                        'found_id' => $id,
+                        'id_type' => gettype($id),
+                        'order_id_type' => gettype($orderId),
+                        'has_order_data' => isset($orderData['order']),
+                        'has_items' => isset($orderData['items'])
+                    ]);
+
+                    return [
+                        'ord_id' => $orderId,
+                        'order' => $orderData['order'],
+                        'items' => $orderData['items']
+                    ];
+                }
+            }
+
+            $this->logger->warning('Order not found', [
+                'order_id' => $orderId,
+                'searched_ids' => array_keys($orders)
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to get order data', [
+                'error' => $e->getMessage(),
+                'order_id' => $orderId
+            ]);
+            return null;
+        }
     }
 }

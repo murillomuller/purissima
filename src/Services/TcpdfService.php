@@ -1260,13 +1260,35 @@ class TcpdfService
 
         //Add Patient Name
         $patientName = $rotuloData['patient_name'] ?? 'SEU NOME';
+        $patientNameUpper = mb_strtoupper($patientName, 'UTF-8');
+
+        // Set font first for accurate width calculation
         try {
             $pdf->SetFont('brandontextblack', '', 9);
         } catch (\Exception $e) {
             $pdf->SetFont('helvetica', 'B', 9);
         }
+
+        // Calculate available width for patient name - make it more restrictive
+        $maxNameWidth = $middleColumnWidth - 10; // Use only 60% of the middle column width
+
+        // Abbreviate patient name if needed
+        $abbreviatedPatientName = $this->abbreviatePatientName($pdf, $patientNameUpper, $maxNameWidth, 'brandontextblack', 9);
+
+        // Debug logging
+        $textWidth = $pdf->GetStringWidth($patientNameUpper);
+        $this->logger->info('Patient name width analysis', [
+            'original' => $patientNameUpper,
+            'abbreviated' => $abbreviatedPatientName,
+            'text_width' => $textWidth,
+            'max_width' => $maxNameWidth,
+            'needs_abbreviation' => $textWidth > $maxNameWidth,
+            'middle_column_width' => $middleColumnWidth,
+            'width_percentage' => '60%'
+        ]);
+
         $pdf->SetXY($middleColumnX, $y + $height - 9);
-        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText(mb_strtoupper($patientName, 'UTF-8')), 0, 1, 'C');
+        $pdf->Cell($middleColumnWidth - 2, 3, $this->cleanText($abbreviatedPatientName), 0, 1, 'C');
         $currentY += 4.5;
 
         // Horizontal line separator
@@ -1539,7 +1561,7 @@ class TcpdfService
         $patientNameUpper = mb_strtoupper($patientName, 'UTF-8');
 
         // Check if name is too long and abbreviate if necessary
-        $maxNameWidth = $middleColumnWidth - 2;
+        $maxNameWidth = $middleColumnWidth - 10;
         $abbreviatedName = $this->abbreviatePatientName($pdf, $patientNameUpper, $maxNameWidth, 'brandontextblack', 10);
 
         try {

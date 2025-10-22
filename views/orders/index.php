@@ -68,6 +68,16 @@ ob_start();
                         <label class="text-white text-sm font-semibold mb-2">Data final</label>
                         <input id="dateToFilter" type="date" onchange="applyFilters()" class="bg-white/90 text-gray-800 text-sm rounded-lg px-3 py-2 border border-white/50 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm" />
                     </div>
+
+                    <!-- Rotulo Status Filter -->
+                    <div class="flex flex-col sm:w-48">
+                        <label class="text-white text-sm font-semibold mb-2">Status Rótulo</label>
+                        <select id="rotuloStatusFilter" onchange="applyFilters()" class="bg-white/90 text-gray-800 text-sm rounded-lg px-3 py-2 border border-white/50 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-sm">
+                            <option value="all">Todos os pedidos</option>
+                            <option value="generated">Rótulos gerados</option>
+                            <option value="not_generated">Rótulos não gerados</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
@@ -394,6 +404,60 @@ ob_start();
                 <span id="loadingMessage" class="text-gray-700 text-lg font-semibold">Gerando...</span>
             </div>
             <p class="text-gray-600 text-sm">Aguarde enquanto processamos o pedido...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Rotulo Generation Warning Modal -->
+<div id="rotuloWarningModal" class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-2 sm:top-10 mx-auto p-3 sm:p-5 border w-11/12 sm:w-10/12 md:w-3/4 lg:w-1/2 xl:w-2/5 shadow-2xl rounded-xl bg-white max-h-[95vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                <h3 class="text-lg sm:text-xl lg:text-2xl font-bold text-yellow-600 truncate">Aviso - Rótulo Já Gerado</h3>
+            </div>
+            <button onclick="closeRotuloWarningModal()" class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-lg hover:bg-gray-100 flex-shrink-0">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="space-y-4 sm:space-y-6">
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-yellow-800">
+                            Rótulo(s) já foi(ram) gerado(s) anteriormente
+                        </h3>
+                        <div class="mt-2 text-sm text-yellow-700">
+                            <p id="rotuloWarningMessage">Os seguintes pedidos já tiveram seus rótulos gerados:</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="rotuloWarningOrders" class="space-y-2">
+                <!-- Orders list will be populated here -->
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <p class="text-sm text-gray-700">
+                    <strong>Deseja continuar?</strong> Gerar novamente substituirá os rótulos anteriores.
+                </p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                <button onclick="closeRotuloWarningModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-200">
+                    Cancelar
+                </button>
+                <button onclick="confirmRotuloGeneration()" class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-200">
+                    Continuar e Gerar
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -760,7 +824,11 @@ ob_start();
         paginatedOrders.forEach(o => {
             const order = o.order;
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer';
+            // Add background color based on rotulo generation status
+            const rotuloGenerated = o.rotulo_generated || false;
+            const baseClasses = 'hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer';
+            const rotuloClasses = rotuloGenerated ? 'bg-green-50 border-l-4 border-green-400' : '';
+            tr.className = `${baseClasses} ${rotuloClasses}`;
             tr.onclick = (e) => {
                 // Don't trigger if clicking on checkboxes, buttons, or dropdowns
                 if (e.target.type === 'checkbox' ||
@@ -777,7 +845,23 @@ ob_start();
             <td class="px-2 sm:px-4 py-3 sm:py-4">
                 <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
             </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">#${order.ord_id}</td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">
+                <div class="flex items-center space-x-2">
+                    <span>#${order.ord_id}</span>
+                    ${rotuloGenerated ? 
+                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Rótulo gerado em ${o.rotulo_generated_at}">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                        </span>` : 
+                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="Rótulo não gerado">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </span>`
+                    }
+                </div>
+            </td>
             <td class="px-3 sm:px-6 py-3 sm:py-4">
                 <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
             </td>
@@ -930,7 +1014,11 @@ ob_start();
         paginatedOrders.forEach(o => {
             const order = o.order;
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer';
+            // Add background color based on rotulo generation status
+            const rotuloGenerated = o.rotulo_generated || false;
+            const baseClasses = 'hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer';
+            const rotuloClasses = rotuloGenerated ? 'bg-green-50 border-l-4 border-green-400' : '';
+            tr.className = `${baseClasses} ${rotuloClasses}`;
             tr.onclick = (e) => {
                 // Don't trigger if clicking on checkboxes, buttons, or dropdowns
                 if (e.target.type === 'checkbox' ||
@@ -947,7 +1035,23 @@ ob_start();
             <td class="px-2 sm:px-4 py-3 sm:py-4">
                 <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
             </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">#${order.ord_id}</td>
+            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">
+                <div class="flex items-center space-x-2">
+                    <span>#${order.ord_id}</span>
+                    ${rotuloGenerated ? 
+                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Rótulo gerado em ${o.rotulo_generated_at}">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                        </span>` : 
+                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="Rótulo não gerado">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </span>`
+                    }
+                </div>
+            </td>
             <td class="px-3 sm:px-6 py-3 sm:py-4">
                 <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
             </td>
@@ -1211,6 +1315,21 @@ ob_start();
             });
         }
 
+        // Apply rotulo generation status filter
+        const rotuloStatus = document.getElementById('rotuloStatusFilter').value;
+        if (rotuloStatus !== 'all') {
+            filtered = filtered.filter(order => {
+                const hasGeneratedRotulo = order.rotulo_generated || false;
+
+                if (rotuloStatus === 'generated') {
+                    return hasGeneratedRotulo;
+                } else if (rotuloStatus === 'not_generated') {
+                    return !hasGeneratedRotulo;
+                }
+                return true;
+            });
+        }
+
         return filtered;
     }
 
@@ -1252,6 +1371,7 @@ ob_start();
         document.getElementById('reqStatusFilter').value = 'all';
         document.getElementById('dateFromFilter').value = '';
         document.getElementById('dateToFilter').value = '';
+        document.getElementById('rotuloStatusFilter').value = 'all';
         applyFilters();
     }
 
@@ -1610,6 +1730,20 @@ ob_start();
                 <p><b>ID:</b> ${order.ord_id}</p>
                 <p><b>Status:</b> ${order.chg_status === 'paid' ? 'Pago' : 'Pendente'}</p>
                 <p><b>Data:</b> ${new Date(order.created_at).toLocaleString('pt-BR')}</p>
+                <p><b>Rótulo:</b> ${o.rotulo_generated ? 
+                    `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                        Gerado em ${new Date(o.rotulo_generated_at).toLocaleString('pt-BR')}
+                    </span>` : 
+                    `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        Não gerado
+                    </span>`
+                }</p>
             </div>
         </div>
         <div class='mt-6'>
@@ -2262,6 +2396,22 @@ ob_start();
     }
 
     function generateSticker(id) {
+        // Check if rotulo was already generated
+        const order = ordersData.find(o => o.order.ord_id == id);
+        if (order && order.rotulo_generated) {
+            // Show warning modal
+            showRotuloWarningModal([order], () => {
+                // Execute the actual generation after user confirms
+                executeGenerateSticker(id);
+            });
+            return;
+        }
+
+        // If not generated, proceed directly
+        executeGenerateSticker(id);
+    }
+
+    function executeGenerateSticker(id) {
         // Show loading overlay with appropriate message
         showLoadingOverlay('Gerando Rótulos...');
 
@@ -2305,12 +2455,17 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage('Rótulos gerados e baixados com sucesso!');
+
+                            // Refresh the orders data to update the status
+                            refreshOrders();
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage('Rótulos gerados com sucesso!');
+                                // Refresh the orders data to update the status
+                                refreshOrders();
                             } else {
                                 showErrorMessage(data.error || 'Erro ao gerar rótulos');
                             }
@@ -2475,6 +2630,22 @@ ob_start();
     }
 
     function previewSticker(id) {
+        // Check if rotulo was already generated
+        const order = ordersData.find(o => o.order.ord_id == id);
+        if (order && order.rotulo_generated) {
+            // Show warning modal
+            showRotuloWarningModal([order], () => {
+                // Execute the actual preview after user confirms
+                executePreviewSticker(id);
+            });
+            return;
+        }
+
+        // If not generated, proceed directly
+        executePreviewSticker(id);
+    }
+
+    function executePreviewSticker(id) {
         // Show loading overlay with appropriate message
         showLoadingOverlay('Visualizando Rótulos...');
 
@@ -2514,12 +2685,17 @@ ob_start();
 
                             // Show success message
                             showSuccessMessage('Rótulos visualizados com sucesso!');
+
+                            // Refresh the orders data to update the status
+                            refreshOrders();
                         });
                     } else {
                         // Try to parse as JSON for error messages
                         return response.json().then(data => {
                             if (data.success) {
                                 showSuccessMessage('Rótulos visualizados com sucesso!');
+                                // Refresh the orders data to update the status
+                                refreshOrders();
                             } else {
                                 showErrorMessage(data.error || 'Erro ao visualizar rótulos');
                             }
@@ -2709,6 +2885,47 @@ ob_start();
 
     function closeLastDayLabelsModal() {
         document.getElementById('lastDayLabelsModal').classList.add('hidden');
+    }
+
+    // Rotulo Warning Modal Functions
+    let pendingRotuloAction = null;
+    let pendingRotuloOrders = [];
+
+    function showRotuloWarningModal(orders, action) {
+        pendingRotuloAction = action;
+        pendingRotuloOrders = orders;
+
+        const modal = document.getElementById('rotuloWarningModal');
+        const ordersList = document.getElementById('rotuloWarningOrders');
+
+        // Populate the orders list
+        ordersList.innerHTML = orders.map(order => `
+            <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between">
+                <div>
+                    <span class="font-semibold text-gray-900">#${order.ord_id}</span>
+                    <span class="text-gray-600 ml-2">${order.usr_name}</span>
+                </div>
+                <div class="text-sm text-gray-500">
+                    Gerado em: ${new Date(order.rotulo_generated_at).toLocaleString('pt-BR')}
+                </div>
+            </div>
+        `).join('');
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeRotuloWarningModal() {
+        document.getElementById('rotuloWarningModal').classList.add('hidden');
+        pendingRotuloAction = null;
+        pendingRotuloOrders = [];
+    }
+
+    function confirmRotuloGeneration() {
+        if (pendingRotuloAction) {
+            // Execute the pending action
+            pendingRotuloAction();
+        }
+        closeRotuloWarningModal();
     }
 
     function loadLastDayOrdersForLabels() {
