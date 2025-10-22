@@ -16,11 +16,13 @@ class PurissimaApiService
     {
         $this->logger = $logger;
         $this->baseUrl = $_ENV['PURISSIMA_API_URL'] ?? 'https://api.purissima.com';
-        
+
         $this->client = new Client([
             'base_uri' => $this->baseUrl,
             'timeout' => (int)($_ENV['API_TIMEOUT'] ?? 30),
             'headers' => [
+                'Authorization' => '@T0vScri4nS~;YgfKVH9{W1.O1!J$w',
+                'x-api-key' => '@T0vScri4nS~;YgfKVH9{W1.O1!J$w',
                 'Content-Type' => 'application/json; charset=utf-8',
                 'Accept' => 'application/json; charset=utf-8',
                 'User-Agent' => 'Purissima-PHP-Client/1.0'
@@ -36,23 +38,23 @@ class PurissimaApiService
             $this->logger->info('Fetching orders from Purissima API', [
                 'url' => $this->baseUrl . '/receituario/get-orders.php'
             ]);
-            
+
             $response = $this->client->get('/receituario/get-orders.php');
             $statusCode = $response->getStatusCode();
             $body = $response->getBody()->getContents();
-            
+
             $this->logger->info('API Response received', [
                 'status_code' => $statusCode,
                 'body_length' => strlen($body)
             ]);
-            
+
             // Check for HTTP errors
             if ($statusCode >= 400) {
                 $this->logger->error('API returned error status', [
                     'status_code' => $statusCode,
                     'body' => $body
                 ]);
-                
+
                 if ($statusCode === 500) {
                     throw new \Exception('Server error: `GET ' . $this->baseUrl . '/receituario/get-orders.php` resulted in a `500 Internal Server Error` response');
                 } elseif ($statusCode === 404) {
@@ -63,7 +65,7 @@ class PurissimaApiService
                     throw new \Exception('API error: HTTP ' . $statusCode . ' - ' . $body);
                 }
             }
-            
+
             $data = json_decode($body, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 $this->logger->error('Invalid JSON response', [
@@ -87,14 +89,13 @@ class PurissimaApiService
             // Ensure proper UTF-8 encoding of the results
             $results = $data['results'] ?? [];
             $utf8Results = $this->ensureUtf8Encoding($results);
-            
+
             // Deduplicate items within each order
             $deduplicatedResults = $this->deduplicateItems($utf8Results);
 
             // Note: req field should come from API data only, no hardcoded values
-            
-            return $deduplicatedResults;
 
+            return $deduplicatedResults;
         } catch (RequestException $e) {
             $this->logger->error('Request exception occurred', [
                 'error' => $e->getMessage(),
@@ -122,15 +123,15 @@ class PurissimaApiService
     private function deduplicateItems(array $orders): array
     {
         $deduplicatedOrders = [];
-        
+
         foreach ($orders as $orderId => $orderData) {
             $deduplicatedOrder = $orderData;
-            
+
             // Check if this order has items to deduplicate
             if (isset($orderData['items']) && is_array($orderData['items'])) {
                 $seenItems = [];
                 $deduplicatedItems = [];
-                
+
                 foreach ($orderData['items'] as $item) {
                     // Prefer strong identity when available
                     $hasStrongId = isset($item['itm_id']) && isset($item['var_id']) && $item['itm_id'] !== '' && $item['var_id'] !== '';
@@ -145,7 +146,7 @@ class PurissimaApiService
                         // If even fallback is empty, use a unique per-item key to disable dedup
                         $itemKey = $norm !== '' ? 'fallback:' . $norm : uniqid('no-key-', true);
                     }
-                    
+
                     if (!isset($seenItems[$itemKey])) {
                         $seenItems[$itemKey] = true;
                         $deduplicatedItems[] = $item;
@@ -160,13 +161,13 @@ class PurissimaApiService
                         ]);
                     }
                 }
-                
+
                 $deduplicatedOrder['items'] = $deduplicatedItems;
             }
-            
+
             $deduplicatedOrders[$orderId] = $deduplicatedOrder;
         }
-        
+
         return $deduplicatedOrders;
     }
 
