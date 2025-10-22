@@ -212,8 +212,34 @@ class OrdersController extends BaseController
                 ]);
             }
 
-            // This will output the PDF directly to browser and log the download
-            $filename = $this->pdfService->createStickerPdf($orderData, $items);
+            // Get batch options from request or use defaults
+            $options = [
+                'page_format' => $request->get('page_format', 'A4'),
+                'orientation' => $request->get('orientation', 'P'),
+                'margin' => (float) $request->get('margin', 5),
+                'spacing' => (float) $request->get('spacing', 2),
+                'group_by_type' => filter_var($request->get('group_by_type', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'optimize_layout' => filter_var($request->get('optimize_layout', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'preview_mode' => filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN),
+            ];
+
+            // Prepare items with order data for batch processing
+            $allItemsWithOrderData = [];
+            foreach ($items as $item) {
+                if ($devMode || (isset($item['req']) && trim((string)$item['req']) !== '')) {
+                    $allItemsWithOrderData[] = [
+                        'item' => $item,
+                        'order_data' => $orderData
+                    ];
+                }
+            }
+
+            if (count($allItemsWithOrderData) === 0) {
+                return $this->json(['success' => false, 'error' => 'No valid items found for label generation'], 404);
+            }
+
+            // Use batch function to generate labels for single order
+            $filename = $this->pdfService->createBatchLabelsPdf($allItemsWithOrderData, $options);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([
@@ -800,8 +826,34 @@ class OrdersController extends BaseController
                 ]);
             }
 
-            // This will output the PDF for preview in browser
-            $filename = $this->pdfService->previewStickerPdf($orderData, $items);
+            // Get batch options from request or use defaults with preview mode enabled
+            $options = [
+                'page_format' => $request->get('page_format', 'A4'),
+                'orientation' => $request->get('orientation', 'P'),
+                'margin' => (float) $request->get('margin', 5),
+                'spacing' => (float) $request->get('spacing', 2),
+                'group_by_type' => filter_var($request->get('group_by_type', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'optimize_layout' => filter_var($request->get('optimize_layout', 'true'), FILTER_VALIDATE_BOOLEAN),
+                'preview_mode' => true, // Always true for preview
+            ];
+
+            // Prepare items with order data for batch processing
+            $allItemsWithOrderData = [];
+            foreach ($items as $item) {
+                if ($devMode || (isset($item['req']) && trim((string)$item['req']) !== '')) {
+                    $allItemsWithOrderData[] = [
+                        'item' => $item,
+                        'order_data' => $orderData
+                    ];
+                }
+            }
+
+            if (count($allItemsWithOrderData) === 0) {
+                return $this->json(['success' => false, 'error' => 'No valid items found for label preview'], 404);
+            }
+
+            // Use batch function to generate labels for single order preview
+            $filename = $this->pdfService->previewBatchLabelsPdf($allItemsWithOrderData, $options);
 
             // This line should never be reached as the PDF is output directly
             return $this->json([

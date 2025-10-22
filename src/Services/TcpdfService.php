@@ -2389,6 +2389,15 @@ class TcpdfService
         $oldDisplayErrors = ini_set('display_errors', 0);
 
         try {
+            // Filter items by intensity level to hide lower levels when higher levels exist
+            $filteredItemsWithOrderData = $this->filterBatchItemsByIntensityLevel($itemsWithOrderData);
+
+            $this->logger->info('Items filtered for batch labels generation', [
+                'original_count' => count($itemsWithOrderData),
+                'filtered_count' => count($filteredItemsWithOrderData),
+                'removed_count' => count($itemsWithOrderData) - count($filteredItemsWithOrderData)
+            ]);
+
             // Initialize PDF with specified format
             $pdf = $this->initializeBatchPdf($options);
             $this->preparePdf($pdf);
@@ -2398,7 +2407,7 @@ class TcpdfService
             $pageHeight = 505; // Increased height for better space utilization
 
             // Prepare label data
-            $labelData = $this->prepareBatchLabelData($itemsWithOrderData, $options);
+            $labelData = $this->prepareBatchLabelData($filteredItemsWithOrderData, $options);
 
             // Calculate optimal layout
             $layout = $this->calculateOptimalLayout($labelData, $pageWidth, $pageHeight, $options);
@@ -3946,8 +3955,11 @@ class TcpdfService
 
         $options = array_merge($defaultOptions, $options);
 
+        // Filter items by intensity level to hide lower levels when higher levels exist
+        $filteredItemsWithOrderData = $this->filterBatchItemsByIntensityLevel($itemsWithOrderData);
+
         // Prepare label data
-        $labelData = $this->prepareBatchLabelData($itemsWithOrderData, $options);
+        $labelData = $this->prepareBatchLabelData($filteredItemsWithOrderData, $options);
 
         // Use the same page dimensions as individual rotulos
         $pageWidth = 460;  // Max width for rotulos (460mm)
@@ -4025,6 +4037,15 @@ class TcpdfService
         $oldDisplayErrors = ini_set('display_errors', 0);
 
         try {
+            // Filter items by intensity level to hide lower levels when higher levels exist
+            $filteredItems = $this->filterItemsByIntensityLevel($items);
+
+            $this->logger->info('Items filtered for rotulos generation', [
+                'original_count' => count($items),
+                'filtered_count' => count($filteredItems),
+                'removed_count' => count($items) - count($filteredItems)
+            ]);
+
             // Start with custom dimensions (460mm x 500mm) - work vertically throughout
             $pdf = new Fpdi('P', 'mm', [460, 500]); // Custom page size
             $this->preparePdf($pdf);
@@ -4080,7 +4101,7 @@ class TcpdfService
             $capsulas = [];
             $otherItems = [];
 
-            foreach ($items as $itemIndex => $item) {
+            foreach ($filteredItems as $itemIndex => $item) {
                 $rotuloData = $this->prepareRotuloDataFromItem($orderData, $item, $itemIndex);
                 $productType = $rotuloData['product_type'] ?? '';
                 $productName = $rotuloData['product_name'] ?? '';
@@ -4348,6 +4369,229 @@ class TcpdfService
         ]);
 
         return $rotuloData;
+    }
+
+    /**
+     * Filter batch items to hide lower intensity levels when higher levels exist
+     * For batch processing with order data structure
+     * 
+     * @param array $itemsWithOrderData Array of items with order data to filter
+     * @return array Filtered items with order data array
+     */
+    private function filterBatchItemsByIntensityLevel(array $itemsWithOrderData): array
+    {
+        $this->logger->debug('Filtering batch items by intensity level', [
+            'total_items' => count($itemsWithOrderData)
+        ]);
+
+        // Extract items for filtering
+        $items = [];
+        foreach ($itemsWithOrderData as $itemWithOrder) {
+            $items[] = $itemWithOrder['item'];
+        }
+
+        // Apply the same filtering logic
+        $filteredItems = $this->filterItemsByIntensityLevel($items);
+
+        // Rebuild the filtered items with order data structure
+        $filteredItemsWithOrderData = [];
+        foreach ($filteredItems as $filteredItem) {
+            // Find the original item with order data
+            foreach ($itemsWithOrderData as $itemWithOrder) {
+                if ($itemWithOrder['item'] === $filteredItem) {
+                    $filteredItemsWithOrderData[] = $itemWithOrder;
+                    break;
+                }
+            }
+        }
+
+        $this->logger->info('Batch items filtered by intensity level', [
+            'original_count' => count($itemsWithOrderData),
+            'filtered_count' => count($filteredItemsWithOrderData),
+            'removed_count' => count($itemsWithOrderData) - count($filteredItemsWithOrderData),
+            'original_items' => array_map(function ($itemWithOrder) {
+                return $itemWithOrder['item']['itm_name'] ?? $itemWithOrder['item']['name'] ?? 'Unknown';
+            }, $itemsWithOrderData),
+            'filtered_items' => array_map(function ($itemWithOrder) {
+                return $itemWithOrder['item']['itm_name'] ?? $itemWithOrder['item']['name'] ?? 'Unknown';
+            }, $filteredItemsWithOrderData)
+        ]);
+
+        return $filteredItemsWithOrderData;
+    }
+
+    /**
+     * Filter items to hide lower intensity levels when higher levels exist
+     * For example: if both "item-leve" and "item-moderado" exist, hide "item-leve"
+     * 
+     * @param array $items Array of items to filter
+     * @return array Filtered items array
+     */
+    private function filterItemsByIntensityLevel(array $items): array
+    {
+        $this->logger->debug('Filtering items by intensity level', [
+            'total_items' => count($items)
+        ]);
+
+        // Group items by base name (without intensity suffix)
+        $groupedItems = [];
+        $intensityLevels = ['leve', 'moderado', 'moderada', 'intenso', 'forte']; // Ordered from lowest to highest
+
+        foreach ($items as $item) {
+            $itemName = $item['itm_name'] ?? $item['name'] ?? '';
+            $baseName = $this->extractBaseNameFromItem($itemName);
+
+            $this->logger->debug('Processing item for grouping', [
+                'original_name' => $itemName,
+                'base_name' => $baseName,
+                'has_intensity' => $baseName !== $itemName
+            ]);
+
+            if (!isset($groupedItems[$baseName])) {
+                $groupedItems[$baseName] = [];
+            }
+
+            $groupedItems[$baseName][] = $item;
+        }
+
+        $this->logger->debug('Items grouped by base name', [
+            'groups' => array_map(function ($group) {
+                return array_map(function ($item) {
+                    return $item['itm_name'] ?? $item['name'] ?? 'Unknown';
+                }, $group);
+            }, $groupedItems)
+        ]);
+
+        $filteredItems = [];
+
+        foreach ($groupedItems as $baseName => $groupItems) {
+            if (count($groupItems) === 1) {
+                // Only one item with this base name, keep it
+                $filteredItems = array_merge($filteredItems, $groupItems);
+                $this->logger->debug('Single item kept', [
+                    'base_name' => $baseName,
+                    'item_name' => $groupItems[0]['itm_name'] ?? $groupItems[0]['name'] ?? ''
+                ]);
+            } else {
+                // Multiple items with same base name, find the highest intensity
+                $highestIntensityItem = $this->findHighestIntensityItem($groupItems, $intensityLevels);
+
+                if ($highestIntensityItem) {
+                    $filteredItems[] = $highestIntensityItem;
+                    $this->logger->debug('Highest intensity item selected', [
+                        'base_name' => $baseName,
+                        'selected_item' => $highestIntensityItem['itm_name'] ?? $highestIntensityItem['name'] ?? '',
+                        'total_group_items' => count($groupItems)
+                    ]);
+                } else {
+                    // No intensity found, keep all items
+                    $filteredItems = array_merge($filteredItems, $groupItems);
+                    $this->logger->debug('No intensity levels found, keeping all items', [
+                        'base_name' => $baseName,
+                        'items_count' => count($groupItems)
+                    ]);
+                }
+            }
+        }
+
+        $this->logger->info('Items filtered by intensity level', [
+            'original_count' => count($items),
+            'filtered_count' => count($filteredItems),
+            'removed_count' => count($items) - count($filteredItems),
+            'original_items' => array_map(function ($item) {
+                return $item['itm_name'] ?? $item['name'] ?? 'Unknown';
+            }, $items),
+            'filtered_items' => array_map(function ($item) {
+                return $item['itm_name'] ?? $item['name'] ?? 'Unknown';
+            }, $filteredItems)
+        ]);
+
+        return $filteredItems;
+    }
+
+    /**
+     * Extract base name from item name by removing intensity suffixes
+     * 
+     * @param string $itemName Original item name
+     * @return string Base name without intensity suffix
+     */
+    private function extractBaseNameFromItem(string $itemName): string
+    {
+        // Handle different intensity patterns
+        $intensityPatterns = [
+            // Standard patterns with hyphens
+            '/\s*-\s*(leve|moderado|moderada|intenso|forte)\s*$/i',
+            // Patterns with em dashes
+            '/\s*–\s*(leve|moderado|moderada|intenso|forte)\s*$/i',
+            // Patterns with em dashes and parentheses
+            '/\s*–\s*(leve|moderado|moderada|intenso|forte)\s*\([^)]*\)\s*$/i',
+            // Patterns with hyphens and parentheses
+            '/\s*-\s*(leve|moderado|moderada|intenso|forte)\s*\([^)]*\)\s*$/i'
+        ];
+
+        foreach ($intensityPatterns as $pattern) {
+            if (preg_match($pattern, $itemName, $matches)) {
+                // Remove the matched intensity part
+                return preg_replace($pattern, '', $itemName);
+            }
+        }
+
+        return $itemName;
+    }
+
+    /**
+     * Find the item with the highest intensity level
+     * 
+     * @param array $items Array of items with same base name
+     * @param array $intensityLevels Ordered array of intensity levels (lowest to highest)
+     * @return array|null Item with highest intensity or null if no intensity found
+     */
+    private function findHighestIntensityItem(array $items, array $intensityLevels): ?array
+    {
+        $highestLevel = -1;
+        $highestItem = null;
+
+        foreach ($items as $item) {
+            $itemName = $item['itm_name'] ?? $item['name'] ?? '';
+            $intensityLevel = $this->getIntensityLevel($itemName, $intensityLevels);
+
+            if ($intensityLevel > $highestLevel) {
+                $highestLevel = $intensityLevel;
+                $highestItem = $item;
+            }
+        }
+
+        return $highestItem;
+    }
+
+    /**
+     * Get intensity level index for an item name
+     * 
+     * @param string $itemName Item name to check
+     * @param array $intensityLevels Ordered array of intensity levels
+     * @return int Index of intensity level (-1 if not found)
+     */
+    private function getIntensityLevel(string $itemName, array $intensityLevels): int
+    {
+        $itemNameLower = strtolower($itemName);
+
+        foreach ($intensityLevels as $index => $level) {
+            // Check for different intensity patterns
+            $patterns = [
+                '/\s*-\s*' . preg_quote($level, '/') . '\s*$/i',
+                '/\s*–\s*' . preg_quote($level, '/') . '\s*$/i',
+                '/\s*–\s*' . preg_quote($level, '/') . '\s*\([^)]*\)\s*$/i',
+                '/\s*-\s*' . preg_quote($level, '/') . '\s*\([^)]*\)\s*$/i'
+            ];
+
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $itemNameLower)) {
+                    return $index;
+                }
+            }
+        }
+
+        return -1; // No intensity level found
     }
 
     /**
