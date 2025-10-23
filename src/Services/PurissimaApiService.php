@@ -22,6 +22,7 @@ class PurissimaApiService
             'timeout' => (int)($_ENV['API_TIMEOUT'] ?? 30),
             'headers' => [
                 'Authorization' => 'Bearer @T0vScri4nS~;YgfKVH9{W1.O1!J$w',
+                'Origin' => 'https://purissima.com',
                 'x-api-key' => '@T0vScri4nS~;YgfKVH9{W1.O1!J$w',
                 'Content-Type' => 'application/json; charset=utf-8',
                 'Accept' => 'application/json; charset=utf-8',
