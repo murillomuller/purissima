@@ -742,7 +742,11 @@ class OrdersController extends BaseController
 
             $response = $client->get($apiUrl, [
                 'query' => $params,
-                'http_errors' => false
+                'http_errors' => false,
+                'headers' => [
+                    'Authorization' => 'Bearer @T0vScri4nS~;YgfKVH9{W1.O1!J$w',
+                    'Origin' => $_SERVER['HTTP_ORIGIN'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost'
+                ]
             ]);
 
             $statusCode = $response->getStatusCode();
@@ -815,7 +819,11 @@ class OrdersController extends BaseController
 
             $response = $client->get($apiUrl, [
                 'query' => $params,
-                'http_errors' => false
+                'http_errors' => false,
+                'headers' => [
+                    'Authorization' => 'Bearer @T0vScri4nS~;YgfKVH9{W1.O1!J$w',
+                    'Origin' => $_SERVER['HTTP_ORIGIN'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost'
+                ]
             ]);
 
             $statusCode = $response->getStatusCode();
