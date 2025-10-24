@@ -1,6 +1,6 @@
 services:
   app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile.dev
     ports:
@@ -17,7 +17,7 @@ services:
       - APP_DEBUG=true
       - APP_NAME="Purissima PHP Project"
       - APP_URL=http://localhost:8000
-      - API_BASE_URL=https://api.purissima.com
+      - API_BASE_URL=https://api-internal.purissima.com
       - API_TIMEOUT=30
       - API_RETRY_ATTEMPTS=3
       - PDF_UPLOAD_PATH=storage/uploads

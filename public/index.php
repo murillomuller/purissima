@@ -17,7 +17,7 @@ try {
     $_ENV['APP_ENV'] = $_ENV['APP_ENV'] ?? 'development';
     $_ENV['APP_DEBUG'] = $_ENV['APP_DEBUG'] ?? 'true';
     $_ENV['APP_URL'] = $_ENV['APP_URL'] ?? 'http://localhost:8000';
-    $_ENV['API_BASE_URL'] = $_ENV['API_BASE_URL'] ?? 'https://api.purissima.com';
+    $_ENV['API_BASE_URL'] = $_ENV['API_BASE_URL'] ?? 'https://api-internal.purissima.com';
     $_ENV['API_TIMEOUT'] = $_ENV['API_TIMEOUT'] ?? '30';
     $_ENV['API_RETRY_ATTEMPTS'] = $_ENV['API_RETRY_ATTEMPTS'] ?? '3';
     $_ENV['PDF_UPLOAD_PATH'] = $_ENV['PDF_UPLOAD_PATH'] ?? 'storage/uploads';
@@ -64,6 +64,10 @@ $router->post('/orders/preview-last-day-receituarios', [OrdersController::class,
 // Last day labels routes
 $router->get('/orders/last-day-orders-for-labels', [OrdersController::class, 'getLastDayOrdersForLabels']);
 $router->post('/orders/generate-last-day-labels', [OrdersController::class, 'generateLastDayLabels']);
+
+// Folha de Rosto routes
+$router->post('/orders/generate-folha-rosto', [OrdersController::class, 'generateFolhaRosto']);
+$router->post('/orders/preview-folha-rosto', [OrdersController::class, 'previewFolhaRosto']);
 
 // Production routes
 $router->get('/production', [ProductionController::class, 'index']);

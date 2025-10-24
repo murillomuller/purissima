@@ -5477,4 +5477,215 @@ class TcpdfService
         // Create the cutting path as a rounded rectangle
         $pdf->RoundedRect($x, $y, $width, $height, $radius, '1111');
     }
+
+    /**
+     * Create a Folha de Rosto PDF for a single order
+     */
+    public function createFolhaRostoPdf(array $orderData, array $items, bool $previewMode = false): string
+    {
+        $filename = 'folha_rosto_' . $orderData['ord_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
+        $filepath = $this->outputPath . '/' . $filename;
+
+        try {
+            $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+
+            // Set document information
+            $pdf->SetCreator('Purissima System');
+            $pdf->SetAuthor('Purissima');
+            $pdf->SetTitle('Folha de Rosto - Pedido #' . $orderData['ord_id']);
+            $pdf->SetSubject('Folha de Rosto do Pedido');
+
+            // Set margins
+            $pdf->SetMargins(20, 20, 20);
+            $pdf->SetAutoPageBreak(true, 20);
+
+            // Add page
+            $pdf->AddPage();
+
+            // Set font
+            $pdf->SetFont('helvetica', 'B', 16);
+
+            // Title
+            $pdf->Cell(0, 10, 'FOLHA DE ROSTO', 0, 1, 'C');
+            $pdf->Ln(10);
+
+            // Order information
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Pedido #:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->Cell(0, 8, $orderData['ord_id'] ?? 'N/A', 0, 1);
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Data:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $orderDate = isset($orderData['created_at']) ? date('d/m/Y H:i', strtotime($orderData['created_at'])) : date('d/m/Y H:i');
+            $pdf->Cell(0, 8, $orderDate, 0, 1);
+
+            // Invoice ID if available
+            if (!empty($orderData['invoice_id'])) {
+                $pdf->SetFont('helvetica', 'B', 12);
+                $pdf->Cell(40, 8, 'Fatura #:', 0, 0);
+                $pdf->SetFont('helvetica', '', 12);
+                $pdf->Cell(0, 8, $orderData['invoice_id'], 0, 1);
+            }
+
+            // Subscription ID if available
+            if (!empty($orderData['sub_id'])) {
+                $pdf->SetFont('helvetica', 'B', 12);
+                $pdf->Cell(40, 8, 'Assinatura #:', 0, 0);
+                $pdf->SetFont('helvetica', '', 12);
+                $pdf->Cell(0, 8, $orderData['sub_id'], 0, 1);
+            }
+
+            $pdf->Ln(5);
+
+            // Order status - moved to appear early
+            $pdf->SetFont('helvetica', 'B', 14);
+            $pdf->Cell(0, 8, 'STATUS DO PEDIDO', 0, 1);
+            $pdf->Ln(2);
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Status:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $status = $orderData['chg_status'] === 'paid' ? 'Pago' : 'Pendente';
+            $pdf->Cell(0, 8, $status, 0, 1);
+
+            // Shipping information if available
+            if (!empty($orderData['ord_shipping_shipment_id'])) {
+                $pdf->SetFont('helvetica', 'B', 12);
+                $pdf->Cell(40, 8, 'ID Envio:', 0, 0);
+                $pdf->SetFont('helvetica', '', 12);
+                $pdf->Cell(0, 8, $orderData['ord_shipping_shipment_id'], 0, 1);
+            }
+
+            // Rótulo generation status if available
+            if (isset($orderData['rotulo_generated'])) {
+                $pdf->SetFont('helvetica', 'B', 12);
+                $pdf->Cell(40, 8, 'Rótulo:', 0, 0);
+                $pdf->SetFont('helvetica', '', 12);
+                $rotuloStatus = $orderData['rotulo_generated'] ? 'Gerado' : 'Não gerado';
+                $pdf->Cell(0, 8, $rotuloStatus, 0, 1);
+
+                if ($orderData['rotulo_generated'] && !empty($orderData['rotulo_generated_at'])) {
+                    $pdf->SetFont('helvetica', 'B', 12);
+                    $pdf->Cell(40, 8, 'Gerado em:', 0, 0);
+                    $pdf->SetFont('helvetica', '', 12);
+                    $pdf->Cell(0, 8, date('d/m/Y H:i', strtotime($orderData['rotulo_generated_at'])), 0, 1);
+                }
+            }
+
+            $pdf->Ln(10);
+
+            // Patient information
+            $pdf->SetFont('helvetica', 'B', 14);
+            $pdf->Cell(0, 8, 'DADOS DO PACIENTE', 0, 1);
+            $pdf->Ln(2);
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Nome:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->Cell(0, 8, $orderData['usr_name'] ?? $orderData['Nome'] ?? 'N/A', 0, 1);
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Email:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->Cell(0, 8, $orderData['usr_email'] ?? 'N/A', 0, 1);
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Telefone:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->Cell(0, 8, $orderData['usr_phone'] ?? 'N/A', 0, 1);
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'CPF:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->Cell(0, 8, $orderData['usr_cpf'] ?? 'N/A', 0, 1);
+
+            // Gender information
+            $genero = $orderData['Genero'] ?? null;
+            $sexoLabel = '[Não informado]';
+            if ($genero === 1 || $genero === '1') {
+                $sexoLabel = 'Masculino';
+            } elseif ($genero === 2 || $genero === '2') {
+                $sexoLabel = 'Feminino';
+            }
+
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Cell(40, 8, 'Sexo:', 0, 0);
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->Cell(0, 8, $sexoLabel, 0, 1);
+
+            $pdf->Ln(10);
+
+            // Items information
+            $pdf->SetFont('helvetica', 'B', 14);
+            $pdf->Cell(0, 8, 'ITENS DO PEDIDO', 0, 1);
+            $pdf->Ln(2);
+
+            if (!empty($items)) {
+                $pdf->SetFont('helvetica', 'B', 10);
+                $pdf->Cell(60, 6, 'Nome do Item', 1, 0, 'C');
+                $pdf->Cell(20, 6, 'Qtd', 1, 0, 'C');
+                $pdf->Cell(25, 6, 'Preço', 1, 0, 'C');
+                $pdf->Cell(20, 6, 'REQ', 1, 0, 'C');
+                $pdf->Cell(30, 6, 'Plano', 1, 0, 'C');
+                $pdf->Cell(25, 6, 'Var ID', 1, 1, 'C');
+
+                $pdf->SetFont('helvetica', '', 8);
+                foreach ($items as $item) {
+                    $itemName = $this->cleanText($item['itm_name'] ?? 'N/A');
+
+                    // Calculate the height needed for the item name
+                    $itemNameHeight = $pdf->getStringHeight(60, $itemName);
+                    $otherCellHeight = 6; // Standard height for other cells
+                    $rowHeight = max($itemNameHeight, $otherCellHeight);
+
+                    // Item name with multi-line support
+                    $pdf->MultiCell(60, $rowHeight, $itemName, 1, 'L', false, 0);
+
+                    // Other cells with standard height
+                    $pdf->Cell(20, $rowHeight, $item['itm_quantity'] ?? $item['quantity'] ?? 'N/A', 1, 0, 'C');
+                    $pdf->Cell(25, $rowHeight, isset($item['itm_price']) ? 'R$ ' . $item['itm_price'] : 'N/A', 1, 0, 'C');
+                    $pdf->Cell(20, $rowHeight, $item['req'] ?? 'N/A', 1, 0, 'C');
+                    $pdf->Cell(30, $rowHeight, $item['plan_identifier'] ?? $item['subscription'] ?? 'N/A', 1, 0, 'C');
+                    $pdf->Cell(25, $rowHeight, $item['var_id'] ?? 'N/A', 1, 1, 'C');
+                }
+            } else {
+                $pdf->SetFont('helvetica', '', 12);
+                $pdf->Cell(0, 8, 'Nenhum item encontrado', 0, 1);
+            }
+
+            $pdf->Ln(10);
+
+            // Output the PDF
+            if ($previewMode) {
+                $pdf->Output($filename, 'I'); // Inline display
+            } else {
+                $pdf->Output($filepath, 'F'); // Save to file
+                $pdf->Output($filename, 'D'); // Download
+            }
+
+            $this->logger->info('Folha de Rosto PDF created', [
+                'order_id' => $orderData['ord_id'],
+                'filename' => $filename,
+                'preview_mode' => $previewMode
+            ]);
+
+            return $filename;
+        } catch (\Exception $e) {
+            $this->logger->error('Folha de Rosto PDF creation failed', [
+                'order_id' => $orderData['ord_id'],
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Preview Folha de Rosto PDF (always in preview mode)
+     */
+    public function previewFolhaRostoPdf(array $orderData, array $items): string
+    {
+        return $this->createFolhaRostoPdf($orderData, $items, true);
+    }
 }

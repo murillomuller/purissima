@@ -91,37 +91,127 @@ foreach ($production_items as $item) {
         </div>
     </div>
 
-    <!-- Filters Panel -->
+    <!-- Enhanced Filters Panel -->
     <div class="bg-white border-b border-gray-200">
         <div class="px-2 sm:px-4 lg:px-8 py-4">
-            <div class="grid gap-3 rounded-lg border bg-gray-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
-                <!-- Date From Filter -->
-                <div class="flex flex-col gap-2">
-                    <label for="dateFromFilter" class="text-xs font-semibold uppercase tracking-wide text-gray-600">De</label>
-                    <input id="dateFromFilter" type="datetime-local" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                </div>
+            <!-- Filter Toggle Button -->
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Filtros e Visualização</h3>
+                <button onclick="toggleAdvancedFilters()" id="toggleFiltersBtn" class="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                    </svg>
+                    <span>Filtros Avançados</span>
+                </button>
+            </div>
 
-                <!-- Date To Filter -->
-                <div class="flex flex-col gap-2">
-                    <label for="dateToFilter" class="text-xs font-semibold uppercase tracking-wide text-gray-600">Até</label>
-                    <input id="dateToFilter" type="datetime-local" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+            <!-- Advanced Filters Panel -->
+            <div id="advancedFiltersPanel" class="hidden">
+                <div class="grid gap-4 rounded-lg border bg-gray-50 p-4 sm:grid-cols-1 lg:grid-cols-3">
+                    <!-- Date Filters -->
+                    <div class="space-y-4">
+                        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Filtros de Data</h4>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div class="flex flex-col gap-2">
+                                <label for="dateFromFilter" class="text-xs font-semibold uppercase tracking-wide text-gray-600">De</label>
+                                <input id="dateFromFilter" type="datetime-local" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <label for="dateToFilter" class="text-xs font-semibold uppercase tracking-wide text-gray-600">Até</label>
+                                <input id="dateToFilter" type="datetime-local" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            </div>
+                        </div>
+
+                        <!-- Quick Date Presets -->
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="setDateRange('today')" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded-full transition-colors duration-200">Hoje</button>
+                            <button onclick="setDateRange('yesterday')" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded-full transition-colors duration-200">Ontem</button>
+                            <button onclick="setDateRange('week')" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded-full transition-colors duration-200">7 dias</button>
+                            <button onclick="setDateRange('month')" class="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded-full transition-colors duration-200">30 dias</button>
+                        </div>
+                    </div>
+
+                    <!-- Status Filters -->
+                    <div class="space-y-4">
+                        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Filtros de Status</h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="statusPaid" class="rounded border-gray-300 text-primary focus:ring-primary/20" checked>
+                                <label for="statusPaid" class="text-sm text-gray-700">Pedidos Pagos</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="statusPending" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="statusPending" class="text-sm text-gray-700">Pedidos Pendentes</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="statusRotuloGenerated" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="statusRotuloGenerated" class="text-sm text-gray-700">Com Rótulo Gerado</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="statusRotuloNotGenerated" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="statusRotuloNotGenerated" class="text-sm text-gray-700">Sem Rótulo</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column Visibility -->
+                    <div class="space-y-4">
+                        <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Colunas Visíveis</h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colId" class="rounded border-gray-300 text-primary focus:ring-primary/20" checked>
+                                <label for="colId" class="text-sm text-gray-700">ID do Pedido</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colCustomer" class="rounded border-gray-300 text-primary focus:ring-primary/20" checked>
+                                <label for="colCustomer" class="text-sm text-gray-700">Cliente</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colEmail" class="rounded border-gray-300 text-primary focus:ring-primary/20" checked>
+                                <label for="colEmail" class="text-sm text-gray-700">Email</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colPhone" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="colPhone" class="text-sm text-gray-700">Telefone</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colCpf" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="colCpf" class="text-sm text-gray-700">CPF</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colDate" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="colDate" class="text-sm text-gray-700">Data do Pedido</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colStatus" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="colStatus" class="text-sm text-gray-700">Status</label>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="checkbox" id="colRotulo" class="rounded border-gray-300 text-primary focus:ring-primary/20">
+                                <label for="colRotulo" class="text-sm text-gray-700">Status do Rótulo</label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Filter Actions -->
-                <div class="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-end lg:col-span-2">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4">
                     <button onclick="applyFilters()" id="applyFiltersBtn" class="bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Aplicar filtros
+                        Aplicar Filtros
                     </button>
                     <button onclick="clearFilters()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
-                        Limpar filtros
+                        Limpar Filtros
                     </button>
                     <button onclick="resetFilters()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
-                        Restaurar padrão (30 dias)
+                        Restaurar Padrão
+                    </button>
+                    <button onclick="savePreferences()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                        Salvar Preferências
                     </button>
                 </div>
 
                 <!-- Range Label -->
-                <div id="rangeLabel" class="sm:col-span-2 lg:col-span-4 text-xs font-medium text-gray-600 hidden">
+                <div id="rangeLabel" class="mt-4 text-xs font-medium text-gray-600 hidden">
                     <!-- Range information will be displayed here -->
                 </div>
             </div>
@@ -969,9 +1059,14 @@ foreach ($production_items as $item) {
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)">
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        ${columnVisibility.colId ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>' : ''}
+                        ${columnVisibility.colCustomer ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>' : ''}
+                        ${columnVisibility.colEmail ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>' : ''}
+                        ${columnVisibility.colPhone ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telefone</th>' : ''}
+                        ${columnVisibility.colCpf ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPF</th>' : ''}
+                        ${columnVisibility.colDate ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>' : ''}
+                        ${columnVisibility.colStatus ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>' : ''}
+                        ${columnVisibility.colRotulo ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rótulo</th>' : ''}
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                 </thead>
@@ -995,28 +1090,93 @@ foreach ($production_items as $item) {
                 '<i class="fas fa-check-circle text-green-600 mr-2" title="Rótulo gerado em ' + rotuloGeneratedAt + '"></i>' :
                 '';
 
-            html += `
+            // Build row content based on column visibility
+            let rowContent = `
             <tr class="${rowClass}">
                 <td class="px-6 py-4 whitespace-nowrap">
                     <input type="checkbox" class="order-checkbox" value="${orderId}" ${isSelected ? 'checked' : ''} onchange="toggleOrderSelection('${orderId}')">
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${statusIcon}${orderId}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${customerName}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${customerEmail}</td>
+                </td>`;
+
+            if (columnVisibility.colId) {
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${statusIcon}${orderId}</td>`;
+            }
+
+            if (columnVisibility.colCustomer) {
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${customerName}</td>`;
+            }
+
+            if (columnVisibility.colEmail) {
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${customerEmail}</td>`;
+            }
+
+            if (columnVisibility.colPhone) {
+                const phone = order.data.usr_phone || 'N/A';
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${phone}</td>`;
+            }
+
+            if (columnVisibility.colCpf) {
+                const cpf = order.data.usr_cpf || 'N/A';
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${cpf}</td>`;
+            }
+
+            if (columnVisibility.colDate) {
+                const orderDate = order.data.created_at ? new Date(order.data.created_at).toLocaleDateString('pt-BR') : 'N/A';
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${orderDate}</td>`;
+            }
+
+            if (columnVisibility.colStatus) {
+                const status = order.data.chg_status === 'paid' ? 'Pago' : 'Pendente';
+                const statusColor = order.data.chg_status === 'paid' ? 'text-green-600' : 'text-yellow-600';
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm ${statusColor}">${status}</td>`;
+            }
+
+            if (columnVisibility.colRotulo) {
+                const rotuloStatus = hasGeneratedRotulo ? 'Gerado' : 'Não gerado';
+                const rotuloColor = hasGeneratedRotulo ? 'text-green-600' : 'text-gray-500';
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm ${rotuloColor}">${rotuloStatus}</td>`;
+            }
+
+            rowContent += `
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button onclick="viewOrderDetails(${JSON.stringify(order).replace(/"/g, '&quot;')})" 
-                        class="text-blue-600 hover:text-blue-900 mr-3">
+                        class="text-blue-600 hover:text-blue-900 mr-3" title="Ver detalhes">
                         <i class="fas fa-eye"></i>
                     </button>
+                    <div class="relative inline-block text-left">
+                        <button onclick="toggleFolhaRostoDropdown('${orderId}')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded text-xs font-semibold flex items-center justify-center transition-colors duration-200 mr-3" title="Folha de Rosto">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="folhaRostoDropdown-${orderId}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generateFolhaRosto('${orderId}'); closeDropdown('folhaRostoDropdown-${orderId}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar PDF
+                                </button>
+                                <button onclick="previewFolhaRosto('${orderId}'); closeDropdown('folhaRostoDropdown-${orderId}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <button onclick="removeOrder('${orderId}')" 
-                        class="text-red-600 hover:text-red-900">
+                        class="text-red-600 hover:text-red-900" title="Remover pedido">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
-            </tr>
-        `;
+            </tr>`;
+
+            html += rowContent;
         });
 
         html += `
@@ -1315,9 +1475,36 @@ foreach ($production_items as $item) {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button onclick="viewRemovedOrderDetails(${JSON.stringify(order).replace(/"/g, '&quot;')})" 
-                        class="text-blue-600 hover:text-blue-900 mr-3">
+                        class="text-blue-600 hover:text-blue-900 mr-3" title="Ver detalhes">
                         <i class="fas fa-eye"></i>
                     </button>
+                    <div class="relative inline-block text-left">
+                        <button onclick="toggleFolhaRostoDropdown('${orderId}')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 py-1 rounded text-xs font-semibold flex items-center justify-center transition-colors duration-200 mr-3" title="Folha de Rosto">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="folhaRostoDropdown-${orderId}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generateFolhaRosto('${orderId}'); closeDropdown('folhaRostoDropdown-${orderId}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar PDF
+                                </button>
+                                <button onclick="previewFolhaRosto('${orderId}'); closeDropdown('folhaRostoDropdown-${orderId}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </td>
             </tr>
         `;
@@ -2019,6 +2206,375 @@ foreach ($production_items as $item) {
             const matches = text.includes(categorySearchQuery);
             category.style.display = matches ? 'flex' : 'none';
         });
+    }
+
+    // Advanced Filters and Column Visibility
+    let advancedFiltersVisible = false;
+    let columnVisibility = {
+        colId: true,
+        colCustomer: true,
+        colEmail: true,
+        colPhone: false,
+        colCpf: false,
+        colDate: false,
+        colStatus: false,
+        colRotulo: false
+    };
+
+    function toggleAdvancedFilters() {
+        const panel = document.getElementById('advancedFiltersPanel');
+        const button = document.getElementById('toggleFiltersBtn');
+
+        advancedFiltersVisible = !advancedFiltersVisible;
+
+        if (advancedFiltersVisible) {
+            panel.classList.remove('hidden');
+            button.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                <span>Fechar Filtros</span>
+            `;
+        } else {
+            panel.classList.add('hidden');
+            button.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                </svg>
+                <span>Filtros Avançados</span>
+            `;
+        }
+    }
+
+    function setDateRange(range) {
+        const now = new Date();
+        const fromInput = document.getElementById('dateFromFilter');
+        const toInput = document.getElementById('dateToFilter');
+
+        let fromDate, toDate;
+
+        switch (range) {
+            case 'today':
+                fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                break;
+            case 'yesterday':
+                fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+                toDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59);
+                break;
+            case 'week':
+                fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                toDate = now;
+                break;
+            case 'month':
+                fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                toDate = now;
+                break;
+        }
+
+        fromInput.value = fromDate.toISOString().slice(0, 16);
+        toInput.value = toDate.toISOString().slice(0, 16);
+
+        // Auto-apply filters when using presets
+        setTimeout(() => applyFilters(), 100);
+    }
+
+    function updateColumnVisibility() {
+        // Update column visibility based on checkboxes
+        Object.keys(columnVisibility).forEach(key => {
+            const checkbox = document.getElementById(key);
+            if (checkbox) {
+                columnVisibility[key] = checkbox.checked;
+            }
+        });
+
+        // Re-render the current tab with new column visibility
+        if (currentTab === 'ativos') {
+            loadProductionData();
+        } else if (currentTab === 'removidos') {
+            loadRemovedOrders();
+        }
+    }
+
+    function savePreferences() {
+        const preferences = {
+            columnVisibility: columnVisibility,
+            filters: {
+                dateFrom: document.getElementById('dateFromFilter').value,
+                dateTo: document.getElementById('dateToFilter').value,
+                statusPaid: document.getElementById('statusPaid').checked,
+                statusPending: document.getElementById('statusPending').checked,
+                statusRotuloGenerated: document.getElementById('statusRotuloGenerated').checked,
+                statusRotuloNotGenerated: document.getElementById('statusRotuloNotGenerated').checked
+            },
+            advancedFiltersVisible: advancedFiltersVisible
+        };
+
+        localStorage.setItem('productionPreferences', JSON.stringify(preferences));
+        showSuccessMessage('Preferências salvas com sucesso!');
+    }
+
+    function loadPreferences() {
+        const saved = localStorage.getItem('productionPreferences');
+        if (saved) {
+            try {
+                const preferences = JSON.parse(saved);
+
+                // Load column visibility
+                if (preferences.columnVisibility) {
+                    columnVisibility = {
+                        ...columnVisibility,
+                        ...preferences.columnVisibility
+                    };
+                    Object.keys(columnVisibility).forEach(key => {
+                        const checkbox = document.getElementById(key);
+                        if (checkbox) {
+                            checkbox.checked = columnVisibility[key];
+                        }
+                    });
+                }
+
+                // Load filters
+                if (preferences.filters) {
+                    document.getElementById('dateFromFilter').value = preferences.filters.dateFrom || '';
+                    document.getElementById('dateToFilter').value = preferences.filters.dateTo || '';
+                    document.getElementById('statusPaid').checked = preferences.filters.statusPaid || false;
+                    document.getElementById('statusPending').checked = preferences.filters.statusPending || false;
+                    document.getElementById('statusRotuloGenerated').checked = preferences.filters.statusRotuloGenerated || false;
+                    document.getElementById('statusRotuloNotGenerated').checked = preferences.filters.statusRotuloNotGenerated || false;
+                }
+
+                // Load advanced filters visibility
+                if (preferences.advancedFiltersVisible) {
+                    advancedFiltersVisible = preferences.advancedFiltersVisible;
+                    if (advancedFiltersVisible) {
+                        document.getElementById('advancedFiltersPanel').classList.remove('hidden');
+                        document.getElementById('toggleFiltersBtn').innerHTML = `
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            <span>Fechar Filtros</span>
+                        `;
+                    }
+                }
+
+            } catch (e) {
+                console.error('Error loading preferences:', e);
+            }
+        }
+    }
+
+    // Add event listeners for column visibility checkboxes
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load saved preferences
+        loadPreferences();
+
+        // Add event listeners for column visibility
+        Object.keys(columnVisibility).forEach(key => {
+            const checkbox = document.getElementById(key);
+            if (checkbox) {
+                checkbox.addEventListener('change', updateColumnVisibility);
+            }
+        });
+    });
+
+    // Folha de Rosto functionality
+    function toggleFolhaRostoDropdown(orderId) {
+        const dropdown = document.getElementById(`folhaRostoDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function closeDropdown(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+    }
+
+    function closeAllDropdowns() {
+        // Close all folha de rosto dropdowns
+        const folhaRostoDropdowns = document.querySelectorAll('[id^="folhaRostoDropdown-"]');
+        folhaRostoDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+    }
+
+    function generateFolhaRosto(id) {
+        showLoadingOverlay('Gerando Folha de Rosto...');
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span>Gerando...</span>
+        `;
+
+        fetch('/orders/generate-folha-rosto', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                hideLoadingOverlay();
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `folha_rosto_${id}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                            showSuccessMessage('Folha de Rosto gerada com sucesso!');
+                        });
+                    } else {
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Folha de Rosto gerada com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar Folha de Rosto');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                hideLoadingOverlay();
+                console.error('Error generating folha de rosto:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function previewFolhaRosto(id) {
+        showLoadingOverlay('Gerando preview da Folha de Rosto...');
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span>Gerando...</span>
+        `;
+
+        fetch('/orders/preview-folha-rosto', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                hideLoadingOverlay();
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            showSuccessMessage('Preview da Folha de Rosto aberto!');
+                        });
+                    } else {
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Preview da Folha de Rosto gerado!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar preview da Folha de Rosto');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                hideLoadingOverlay();
+                console.error('Error previewing folha de rosto:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function showLoadingOverlay(message) {
+        // Create loading overlay if it doesn't exist
+        let overlay = document.getElementById('loadingOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            overlay.innerHTML = `
+                <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+                    <svg class="w-6 h-6 animate-spin text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span class="text-gray-700 font-medium">${message}</span>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        } else {
+            overlay.querySelector('span').textContent = message;
+            overlay.classList.remove('hidden');
+        }
+    }
+
+    function hideLoadingOverlay() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+        }
+    }
+
+    function showSuccessMessage(message) {
+        showMessage(message, 'success');
+    }
+
+    function showErrorMessage(message) {
+        showMessage(message, 'error');
+    }
+
+    function showMessage(message, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full ${
+            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`;
+        messageDiv.textContent = message;
+        document.body.appendChild(messageDiv);
+
+        // Animate in
+        setTimeout(() => {
+            messageDiv.classList.remove('translate-x-full');
+        }, 100);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            messageDiv.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 300);
+        }, 5000);
     }
 </script>
 

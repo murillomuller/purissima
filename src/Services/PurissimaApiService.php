@@ -15,7 +15,7 @@ class PurissimaApiService
     public function __construct(LoggerService $logger)
     {
         $this->logger = $logger;
-        $this->baseUrl = $_ENV['PURISSIMA_API_URL'] ?? 'https://api.purissima.com';
+        $this->baseUrl = $_ENV['PURISSIMA_API_URL'] ?? 'https://api-internal.purissima.com';
 
         $this->client = new Client([
             'base_uri' => $this->baseUrl,

@@ -732,7 +732,7 @@ class OrdersController extends BaseController
             }
 
             // Make secure backend call to the shipping label API
-            $apiUrl = 'https://api.purissima.com/labels/lacre-preview.php';
+            $apiUrl = 'https://api-internal.purissima.com/labels/lacre-preview.php';
             $params = ['ord' => $orderId];
 
             $client = new Client([
@@ -809,7 +809,7 @@ class OrdersController extends BaseController
             }
 
             // Make secure backend call to the shipping label API
-            $apiUrl = 'https://api.purissima.com/labels/lacre-preview.php';
+            $apiUrl = 'https://api-internal.purissima.com/labels/lacre-preview.php';
             $params = ['ord' => $orderId];
 
             $client = new Client([
@@ -1299,6 +1299,85 @@ class OrdersController extends BaseController
             // Restore error reporting settings
             error_reporting($oldErrorReporting);
             ini_set('display_errors', $oldDisplayErrors);
+        }
+    }
+
+    public function generateFolhaRosto(Request $request)
+    {
+        try {
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order || !isset($order['order'])) {
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            $orderData = $order['order'];
+            $items = $order['items'] ?? [];
+
+            // Check if preview mode is requested
+            $previewMode = filter_var($request->get('preview', 'false'), FILTER_VALIDATE_BOOLEAN);
+
+            // This will output the PDF directly to browser and log the download
+            $filename = $this->pdfService->createFolhaRostoPdf($orderData, $items, $previewMode);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Folha de Rosto gerada com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to generate folha de rosto', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao gerar Folha de Rosto: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function previewFolhaRosto(Request $request)
+    {
+        try {
+            $orderId = $request->get('order_id');
+            if (empty($orderId)) {
+                return $this->json(['success' => false, 'error' => 'Order ID is required'], 400);
+            }
+
+            $order = $this->purissimaApi->getOrderById($orderId);
+            if (!$order || !isset($order['order'])) {
+                return $this->json(['success' => false, 'error' => 'Order not found'], 404);
+            }
+
+            $orderData = $order['order'];
+            $items = $order['items'] ?? [];
+
+            // This will output the PDF for preview in browser
+            $filename = $this->pdfService->previewFolhaRostoPdf($orderData, $items);
+
+            // This line should never be reached as the PDF is output directly
+            return $this->json([
+                'success' => true,
+                'filename' => $filename,
+                'message' => 'Folha de Rosto preview gerada com sucesso'
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to preview folha de rosto', [
+                'order_id' => $request->get('order_id'),
+                'error' => $e->getMessage()
+            ]);
+
+            return $this->json([
+                'success' => false,
+                'error' => 'Falha ao visualizar Folha de Rosto: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

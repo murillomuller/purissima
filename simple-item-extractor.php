@@ -6,7 +6,7 @@
  */
 
 // Configuration
-$apiUrl = 'https://api.purissima.com/receituario/get-orders.php'; // Update this URL as needed
+$apiUrl = 'https://api-internal.purissima.com/receituario/get-orders.php'; // Update this URL as needed
 $timeout = 30;
 
 echo "=== PURISSIMA ITEM NAMES EXTRACTOR ===\n";
@@ -63,7 +63,7 @@ $ordersProcessed = 0;
 
 foreach ($orders as $orderId => $orderData) {
     $ordersProcessed++;
-    
+
     // Handle different possible data structures
     $items = [];
     if (isset($orderData['items'])) {
@@ -74,7 +74,7 @@ foreach ($orders as $orderId => $orderData) {
         // If the order data is an array of items
         $items = $orderData;
     }
-    
+
     foreach ($items as $item) {
         if (isset($item['itm_name'])) {
             $itemName = trim($item['itm_name']);

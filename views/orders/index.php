@@ -462,6 +462,59 @@ ob_start();
     </div>
 </div>
 
+<!-- Order Debug Modal -->
+<div id="orderDebugModal" class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-2 sm:top-10 mx-auto p-3 sm:p-5 border w-11/12 sm:w-10/12 md:w-3/4 lg:w-2/3 xl:w-1/2 shadow-2xl rounded-xl bg-white max-h-[95vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600 truncate">Debug - Order Data</h3>
+            </div>
+            <button onclick="closeOrderDebugModal()" class="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-lg hover:bg-gray-100 flex-shrink-0">
+                <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="space-y-4 sm:space-y-6">
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            <strong>Debug Information:</strong> This modal shows all available fields for the selected order to help identify why the shipping label button is not appearing.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="text-lg font-semibold text-gray-800 mb-3">Order ID: <span id="debugOrderId" class="font-mono text-blue-600"></span></h4>
+                <div class="space-y-3">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-600 mb-2">Order Data:</h5>
+                        <pre id="debugOrderData" class="bg-white p-3 rounded border text-xs overflow-x-auto whitespace-pre-wrap"></pre>
+                    </div>
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-600 mb-2">Items Data:</h5>
+                        <pre id="debugItemsData" class="bg-white p-3 rounded border text-xs overflow-x-auto whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                <button onclick="closeOrderDebugModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-200">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     let ordersData = [];
     let currentSort = {
@@ -768,6 +821,186 @@ ob_start();
             });
     }
 
+    function generateOrderRowHTML(o) {
+        const order = o.order;
+        const rotuloGenerated = o.rotulo_generated || false;
+        const isSelected = globalSelectedIds.has(order.ord_id.toString());
+
+        return `
+        <td class="px-2 sm:px-4 py-3 sm:py-4">
+            <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">
+            <div class="flex items-center space-x-2">
+                <span>#${order.ord_id}</span>
+                ${rotuloGenerated ? 
+                    `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Rótulo gerado em ${o.rotulo_generated_at}">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                        </svg>
+                    </span>` : 
+                    `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="Rótulo não gerado">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </span>`
+                }
+            </div>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4">
+            <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-600">
+            <div class="max-w-xs truncate" title="${escapeHtml(order.usr_email)}">${escapeHtml(order.usr_email)}</div>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4">
+            <span class="px-2 sm:px-3 py-1 text-xs font-semibold rounded-full ${order.chg_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                ${order.chg_status === 'paid' ? 'Pago' : 'Pendente'}
+            </span>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4">
+            <div class="flex items-center space-x-1 sm:space-x-2">
+                <svg class="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+                <span class="text-xs sm:text-sm">${o.items.length}</span>
+            </div>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">
+            <div class="hidden sm:block">${new Date(order.created_at).toLocaleString('pt-BR')}</div>
+            <div class="sm:hidden">${new Date(order.created_at).toLocaleDateString('pt-BR')}</div>
+        </td>
+        <td class="px-3 sm:px-6 py-3 sm:py-4">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 sm:space-x-2">
+                <div class="relative inline-block text-left">
+                    <button onclick="togglePrescriptionDropdown('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors duration-200" title="Receituário">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="prescriptionDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                        <div class="py-1">
+                            <button onclick="generatePrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Baixar PDF
+                            </button>
+                            <button onclick="previewPrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                Visualizar PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                ${checkAllItemsHaveReq(o.items) ? 
+                    `<div class="relative inline-block text-left">
+                        <button onclick="toggleStickerDropdown('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors duration-200" title="Rótulo">
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                            </svg>
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="stickerDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generateSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar Rótulo
+                                </button>
+                                <button onclick="previewSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar Rótulo
+                                </button>
+                            </div>
+                        </div>
+                    </div>` : 
+                    `<button disabled class="bg-gray-50 text-gray-400 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center cursor-not-allowed" title="Rótulo (REQ incompleto)">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
+                        </svg>
+                    </button>`
+                }
+                ${(order.ord_shipping_shipment_id || (order.order && order.order.ord_shipping_shipment_id)) ? 
+                    `<div class="relative inline-block text-left">
+                        <button onclick="toggleShippingLabelDropdown('${order.ord_id}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors duration-200" title="Etiqueta">
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                            <svg class="w-3 h-3 sm:w-4 sm:h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="shippingLabelDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                            <div class="py-1">
+                                <button onclick="generateShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Baixar PDF
+                                </button>
+                                <button onclick="previewShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Visualizar PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>` : 
+                    `<div></div>`
+                }
+                <div class="relative inline-block text-left">
+                    <button onclick="toggleFolhaRostoDropdown('${order.ord_id}')" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors duration-200" title="Folha de Rosto">
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <svg class="w-3 h-3 sm:w-4 sm:h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="folhaRostoDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                        <div class="py-1">
+                            <button onclick="generateFolhaRosto('${order.ord_id}'); closeDropdown('folhaRostoDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Baixar PDF
+                            </button>
+                            <button onclick="previewFolhaRosto('${order.ord_id}'); closeDropdown('folhaRostoDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                Visualizar PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center ml-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </div>
+            </div>
+        </td>`;
+    }
+
     function displayOrders(orders) {
         // Use cached DOM elements for better performance
         const loadingState = cachedElements.loadingState;
@@ -841,159 +1074,7 @@ ob_start();
                 viewOrderDetails(order.ord_id);
             };
             const isSelected = globalSelectedIds.has(order.ord_id.toString());
-            tr.innerHTML = `
-            <td class="px-2 sm:px-4 py-3 sm:py-4">
-                <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">
-                <div class="flex items-center space-x-2">
-                    <span>#${order.ord_id}</span>
-                    ${rotuloGenerated ? 
-                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Rótulo gerado em ${o.rotulo_generated_at}">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </span>` : 
-                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="Rótulo não gerado">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </span>`
-                    }
-                </div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-600">
-                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_email)}">${escapeHtml(order.usr_email)}</div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <span class="px-2 sm:px-3 py-1 text-xs font-semibold rounded-full ${order.chg_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                    ${order.chg_status === 'paid' ? 'Pago' : 'Pendente'}
-                </span>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <div class="flex items-center space-x-1 sm:space-x-2">
-                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                    </svg>
-                    <span class="text-xs sm:text-sm">${o.items.length}</span>
-                </div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">
-                <div class="hidden sm:block">${new Date(order.created_at).toLocaleString('pt-BR')}</div>
-                <div class="sm:hidden">${new Date(order.created_at).toLocaleDateString('pt-BR')}</div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 sm:space-x-2">
-                    <div class="relative inline-block text-left">
-                        <button onclick="togglePrescriptionDropdown('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <span class="hidden sm:inline">Receituário</span>
-                            <span class="sm:hidden">REC</span>
-                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </button>
-                        <div id="prescriptionDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                            <div class="py-1">
-                                <button onclick="generatePrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    Baixar PDF
-                                </button>
-                                <button onclick="previewPrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    Visualizar PDF
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    ${checkAllItemsHaveReq(o.items) ? 
-                        `<div class="relative inline-block text-left">
-                            <button onclick="toggleStickerDropdown('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
-                            </svg>
-                            <span class="hidden sm:inline">${appConfig.dev_mode ? 'Rótulo (DEV)' : 'Rótulo'}</span>
-                            <span class="sm:hidden">${appConfig.dev_mode ? 'RÓT*' : 'RÓT'}</span>
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <div id="stickerDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                                <div class="py-1">
-                                    <button onclick="generateSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                        Baixar PDF
-                                    </button>
-                                    <button onclick="previewSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                        </svg>
-                                        Visualizar PDF
-                                    </button>
-                                </div>
-                            </div>
-                        </div>` : 
-                        `<button disabled class="bg-gray-50 text-gray-400 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 cursor-not-allowed">
-                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
-                            </svg>
-                            <span class="hidden sm:inline">Rótulo</span>
-                            <span class="sm:hidden">RÓT</span>
-                        </button>`
-                    }
-                    ${order.ord_shipping_shipment_id ? 
-                        `<div class="relative inline-block text-left">
-                            <button onclick="toggleShippingLabelDropdown('${order.ord_id}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                                </svg>
-                                <span class="hidden sm:inline">Etiqueta</span>
-                                <span class="sm:hidden">ETIQ</span>
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <div id="shippingLabelDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                                <div class="py-1">
-                                    <button onclick="generateShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                        Baixar PDF
-                                    </button>
-                                    <button onclick="previewShippingLabel('${order.ord_id}'); closeDropdown('shippingLabelDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                        </svg>
-                                        Visualizar PDF
-                                    </button>
-                                </div>
-                            </div>
-                        </div>` : ''
-                    }
-                    <div class="flex items-center justify-center ml-2">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                    </div>
-                </div>
-            </td>`;
+            tr.innerHTML = generateOrderRowHTML(o);
             fragment.appendChild(tr);
         });
 
@@ -1030,122 +1111,7 @@ ob_start();
                 }
                 viewOrderDetails(order.ord_id);
             };
-            const isSelected = globalSelectedIds.has(order.ord_id.toString());
-            tr.innerHTML = `
-            <td class="px-2 sm:px-4 py-3 sm:py-4">
-                <input type="checkbox" class="row-select h-4 w-4 border-gray-300 rounded" data-id="${order.ord_id}" ${isSelected ? 'checked' : ''}>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 font-semibold text-gray-900">
-                <div class="flex items-center space-x-2">
-                    <span>#${order.ord_id}</span>
-                    ${rotuloGenerated ? 
-                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Rótulo gerado em ${o.rotulo_generated_at}">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-                            </svg>
-                        </span>` : 
-                        `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="Rótulo não gerado">
-                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </span>`
-                    }
-                </div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_name)}">${escapeHtml(order.usr_name)}</div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 text-gray-600">
-                <div class="max-w-xs truncate" title="${escapeHtml(order.usr_email)}">${escapeHtml(order.usr_email)}</div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <span class="px-2 sm:px-3 py-1 text-xs font-semibold rounded-full ${order.chg_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                    ${order.chg_status === 'paid' ? 'Pago' : 'Pendente'}
-                </span>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <div class="flex items-center space-x-1 sm:space-x-2">
-                    <svg class="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                    </svg>
-                    <span class="text-xs sm:text-sm">${o.items.length}</span>
-                </div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">
-                <div class="hidden sm:block">${new Date(order.created_at).toLocaleString('pt-BR')}</div>
-                <div class="sm:hidden">${new Date(order.created_at).toLocaleDateString('pt-BR')}</div>
-            </td>
-            <td class="px-3 sm:px-6 py-3 sm:py-4">
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-1 sm:space-y-0 sm:space-x-1 sm:space-x-2">
-                    <div class="relative inline-block text-left">
-                        <button onclick="togglePrescriptionDropdown('${order.ord_id}')" class="bg-primary hover:bg-secondary text-white px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <span class="hidden sm:inline">Receituário</span>
-                            <span class="sm:hidden">REC</span>
-                            <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </button>
-                        <div id="prescriptionDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                            <div class="py-1">
-                                <button onclick="generatePrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    Baixar PDF
-                                </button>
-                                <button onclick="previewPrescription('${order.ord_id}'); closeDropdown('prescriptionDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    Visualizar PDF
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    ${checkAllItemsHaveReq(o.items) ? 
-                        `<div class="relative inline-block text-left">
-                            <button onclick="toggleStickerDropdown('${order.ord_id}')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded text-xs sm:text-sm font-semibold flex items-center justify-center space-x-1 sm:space-x-2 transition-colors duration-200">
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a4 4 0 006 0M9 7h6m-8 4h10M5 7h.01M5 11h.01M5 17h.01"></path>
-                                </svg>
-                                <span class="hidden sm:inline">Rótulo</span>
-                                <span class="sm:hidden">ROT</span>
-                                <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <div id="stickerDropdown-${order.ord_id}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                                <div class="py-1">
-                                    <button onclick="generateSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                        Baixar Rótulo
-                                    </button>
-                                    <button onclick="previewSticker('${order.ord_id}'); closeDropdown('stickerDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
-                                        <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                        </svg>
-                                        Visualizar Rótulo
-                                    </button>
-                                </div>
-                            </div>
-                        </div>` : ''
-                    }
-                    <div class="flex items-center justify-center ml-2">
-                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7s-8.268-2.943-9.542-7z"></path>
-                        </svg>
-                    </div>
-                </div>
-            </td>`;
+            tr.innerHTML = generateOrderRowHTML(o);
             fragment.appendChild(tr);
         });
 
@@ -1858,6 +1824,34 @@ ob_start();
                         </div>
                     </div>` : ''
                 }
+                <div class="relative inline-block text-left">
+                    <button onclick="toggleFolhaRostoModalDropdown('${order.ord_id}')" class='bg-purple-100 hover:bg-purple-200 text-purple-700 px-6 py-3 rounded-lg font-semibold flex items-center justify-center space-x-2 transition-colors duration-200 shadow-md hover:shadow-lg'>
+                        <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414V19a2 2 0 01-2 2z'></path>
+                        </svg>
+                        <span>Folha de Rosto</span>
+                        <svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                            <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'></path>
+                        </svg>
+                    </button>
+                    <div id="folhaRostoModalDropdown-${order.ord_id}" class="hidden absolute left-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                        <div class="py-1">
+                            <button onclick="generateFolhaRosto('${order.ord_id}'); closeDropdown('folhaRostoModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Baixar Folha de Rosto
+                            </button>
+                            <button onclick="previewFolhaRosto('${order.ord_id}'); closeDropdown('folhaRostoModalDropdown-${order.ord_id}')" class="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 transition-colors duration-200">
+                                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                Visualizar Folha de Rosto
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>`;
         document.getElementById('orderModal').classList.remove('hidden');
@@ -1882,6 +1876,18 @@ ob_start();
 
     function togglePrescriptionModalDropdown(orderId) {
         const dropdown = document.getElementById(`prescriptionModalDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function toggleFolhaRostoModalDropdown(orderId) {
+        const dropdown = document.getElementById(`folhaRostoModalDropdown-${orderId}`);
         const isHidden = dropdown.classList.contains('hidden');
 
         // Close all other dropdowns first
@@ -2013,9 +2019,17 @@ ob_start();
         const shippingLabelDropdowns = document.querySelectorAll('[id^="shippingLabelDropdown-"]');
         shippingLabelDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
 
+        // Close all folha de rosto dropdowns
+        const folhaRostoDropdowns = document.querySelectorAll('[id^="folhaRostoDropdown-"]');
+        folhaRostoDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
         // Close all shipping label modal dropdowns
         const shippingLabelModalDropdowns = document.querySelectorAll('[id^="shippingLabelModalDropdown-"]');
         shippingLabelModalDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
+
+        // Close all folha de rosto modal dropdowns
+        const folhaRostoModalDropdowns = document.querySelectorAll('[id^="folhaRostoModalDropdown-"]');
+        folhaRostoModalDropdowns.forEach(dropdown => dropdown.classList.add('hidden'));
 
         // Close batch prescriptions dropdown
         const batchPrescriptionsDropdown = document.getElementById('batchPrescriptionsDropdown');
@@ -2989,6 +3003,27 @@ ob_start();
         closeRotuloWarningModal();
     }
 
+    function showOrderDebugModal(orderId) {
+        // Find the order data
+        const order = ordersData.find(o => o.ord_id === orderId);
+        if (!order) {
+            console.error('Order not found:', orderId);
+            return;
+        }
+
+        // Populate the debug modal
+        document.getElementById('debugOrderId').textContent = orderId;
+        document.getElementById('debugOrderData').textContent = JSON.stringify(order, null, 2);
+        document.getElementById('debugItemsData').textContent = JSON.stringify(order.items || [], null, 2);
+
+        // Show the modal
+        document.getElementById('orderDebugModal').classList.remove('hidden');
+    }
+
+    function closeOrderDebugModal() {
+        document.getElementById('orderDebugModal').classList.add('hidden');
+    }
+
     function loadLastDayOrdersForLabels() {
         document.getElementById('loadingOverlay').classList.remove('hidden');
 
@@ -3162,6 +3197,157 @@ ob_start();
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 console.error('Error generating last day labels:', error);
                 showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            });
+    }
+
+    // Folha de Rosto functions
+    function toggleFolhaRostoDropdown(orderId) {
+        const dropdown = document.getElementById(`folhaRostoDropdown-${orderId}`);
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Close all other dropdowns first
+        closeAllDropdowns();
+
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    }
+
+    function generateFolhaRosto(id) {
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Gerando Folha de Rosto...');
+
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Gerando...</span>
+    `;
+
+        // Make the API call
+        fetch('/orders/generate-folha-rosto', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and download
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `folha_rosto_${id}_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+
+                            // Show success message
+                            showSuccessMessage('Folha de Rosto gerada com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Folha de Rosto gerada com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao gerar Folha de Rosto');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                hideLoadingOverlay();
+                console.error('Error generating folha de rosto:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                // Re-enable the button
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+
+    function previewFolhaRosto(id) {
+        // Show loading overlay with appropriate message
+        showLoadingOverlay('Visualizando Folha de Rosto...');
+
+        // Disable the button to prevent multiple clicks
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        <span>Visualizando...</span>
+    `;
+
+        // Make the API call for preview
+        fetch('/orders/preview-folha-rosto', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `order_id=${id}`
+            })
+            .then(response => {
+                // Hide loading overlay
+                hideLoadingOverlay();
+
+                if (response.ok) {
+                    // Check if response is PDF (content-type)
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/pdf')) {
+                        // Create blob and open in new tab
+                        return response.blob().then(blob => {
+                            const url = window.URL.createObjectURL(blob);
+                            window.open(url, '_blank');
+                            // Don't revoke URL immediately as it's being used in new tab
+                            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+
+                            // Show success message
+                            showSuccessMessage('Folha de Rosto visualizada com sucesso!');
+                        });
+                    } else {
+                        // Try to parse as JSON for error messages
+                        return response.json().then(data => {
+                            if (data.success) {
+                                showSuccessMessage('Folha de Rosto visualizada com sucesso!');
+                            } else {
+                                showErrorMessage(data.error || 'Erro ao visualizar Folha de Rosto');
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                hideLoadingOverlay();
+                console.error('Error previewing folha de rosto:', error);
+                showErrorMessage('Erro de conexão. Verifique sua internet e tente novamente.');
+            })
+            .finally(() => {
+                // Re-enable the button
+                button.disabled = false;
+                button.innerHTML = originalContent;
             });
     }
 </script>

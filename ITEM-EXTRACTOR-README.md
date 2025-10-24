@@ -62,7 +62,7 @@ Edit the `config` object in `extract-item-names.js` to customize:
 
 ```javascript
 const config = {
-  apiUrl: "https://api.purissima.com/receituario/get-orders.php", // API endpoint
+  apiUrl: "https://api-internal.purissima.com/receituario/get-orders.php", // API endpoint
   timeout: 30000, // Request timeout in milliseconds
   userAgent: "Purissima-Item-Extractor-Node/1.0", // User agent string
 };
@@ -76,7 +76,7 @@ const config = {
   Node.js Version
 ========================================
 
-Fetching data from: https://api.purissima.com/receituario/get-orders.php
+Fetching data from: https://api-internal.purissima.com/receituario/get-orders.php
 
 === EXTRACTION RESULTS ===
 Orders processed: 25
