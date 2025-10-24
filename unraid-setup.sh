@@ -64,7 +64,7 @@ DB_USERNAME=purissima
 DB_PASSWORD=purissimapassword
 
 # External API Configuration
-API_BASE_URL=https://api-internal.purissima.com
+API_BASE_URL=https://api.purissima.com
 API_TIMEOUT=30
 API_RETRY_ATTEMPTS=3
 

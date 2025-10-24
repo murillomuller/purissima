@@ -12,7 +12,7 @@ const path = require("path");
 
 // Configuration
 const config = {
-  apiUrl: "https://api-internal.purissima.com/receituario/get-orders.php", // Update this URL as needed
+  apiUrl: "https://api.purissima.com/receituario/get-orders.php", // Update this URL as needed
   timeout: 30000, // 30 seconds
   userAgent: "Purissima-Item-Extractor-Node/1.0",
 };

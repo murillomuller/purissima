@@ -732,7 +732,7 @@ class OrdersController extends BaseController
             }
 
             // Make secure backend call to the shipping label API
-            $apiUrl = 'https://api-internal.purissima.com/labels/lacre-preview.php';
+            $apiUrl = 'https://api.purissima.com/labels/lacre-preview.php';
             $params = ['ord' => $orderId];
 
             $client = new Client([
@@ -809,7 +809,7 @@ class OrdersController extends BaseController
             }
 
             // Make secure backend call to the shipping label API
-            $apiUrl = 'https://api-internal.purissima.com/labels/lacre-preview.php';
+            $apiUrl = 'https://api.purissima.com/labels/lacre-preview.php';
             $params = ['ord' => $orderId];
 
             $client = new Client([

@@ -6,7 +6,7 @@
  */
 
 // Configuration
-$apiUrl = 'https://api-internal.purissima.com/receituario/get-orders.php'; // Update this URL as needed
+$apiUrl = 'https://api.purissima.com/receituario/get-orders.php'; // Update this URL as needed
 $timeout = 30;
 
 echo "=== PURISSIMA ITEM NAMES EXTRACTOR ===\n";
